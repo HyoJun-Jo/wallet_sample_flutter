@@ -1,36 +1,65 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+
 import '../../../../core/errors/failures.dart';
+import '../../../../core/storage/local_storage.dart';
+import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/auth_entities.dart';
 import '../repositories/auth_repository.dart';
 
-/// Email login use case
 class EmailLoginUseCase implements UseCase<EmailLoginResult, EmailLoginParams> {
   final AuthRepository _repository;
+  final LocalStorageService _localStorage;
+  final SecureStorageService _secureStorage;
 
-  EmailLoginUseCase({required AuthRepository repository})
-      : _repository = repository;
+  EmailLoginUseCase({
+    required AuthRepository repository,
+    required LocalStorageService localStorage,
+    required SecureStorageService secureStorage,
+  })  : _repository = repository,
+        _localStorage = localStorage,
+        _secureStorage = secureStorage;
 
   @override
   Future<Either<Failure, EmailLoginResult>> call(EmailLoginParams params) async {
-    return await _repository.loginWithEmail(
+    final result = await _repository.loginWithEmail(
       email: params.email,
       password: params.password,
+    );
+
+    return result.fold(
+      (failure) => Left(failure),
+      (loginResult) async {
+        if (loginResult is EmailLoginSuccess) {
+          await _repository.saveUserSession(
+            email: params.email,
+            loginType: LoginType.email,
+          );
+          await _localStorage.setBool(LocalStorageKeys.autoLogin, params.autoLogin);
+          if (params.autoLogin) {
+            await _secureStorage.setUserPassword(params.password);
+          } else {
+            await _secureStorage.deleteUserPassword();
+          }
+        }
+        return Right(loginResult);
+      },
     );
   }
 }
 
-/// Email login parameters
 class EmailLoginParams extends Equatable {
   final String email;
   final String password;
+  final bool autoLogin;
 
   const EmailLoginParams({
     required this.email,
     required this.password,
+    this.autoLogin = false,
   });
 
   @override
-  List<Object?> get props => [email, password];
+  List<Object?> get props => [email, password, autoLogin];
 }

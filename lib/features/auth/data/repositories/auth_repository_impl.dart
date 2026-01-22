@@ -1,6 +1,5 @@
-import 'dart:developer' as developer;
-
 import 'package:dartz/dartz.dart';
+
 import '../../../../core/constants/error_codes.dart';
 import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
@@ -10,9 +9,7 @@ import '../../../../core/storage/secure_storage.dart';
 import '../../domain/entities/auth_entities.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_remote_datasource.dart';
-import '../models/auth_credentials_model.dart';
 
-/// Auth Repository implementation
 class AuthRepositoryImpl implements AuthRepository {
   final AuthRemoteDataSource _remoteDataSource;
   final SecureStorageService _secureStorage;
@@ -35,8 +32,6 @@ class AuthRepositoryImpl implements AuthRepository {
     required String password,
   }) async {
     try {
-      developer.log('Auth: loginWithEmail for $email', name: 'Auth');
-
       final channel = await _secureChannelService.getOrCreateChannel();
       final encryptedPassword = _secureChannelService.encryptWithChannel(
         password,
@@ -49,21 +44,17 @@ class AuthRepositoryImpl implements AuthRepository {
         secureChannelId: channel.channelId,
       );
 
-      await _saveCredentialsToStorage(result);
-      developer.log('Auth: Login successful', name: 'Auth');
-
-      return Right(EmailLoginSuccess(credentials: result));
-    } on ServerException catch (e) {
-      developer.log('Auth: Login failed - ${e.message}', name: 'Auth');
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
+      final credentials = result.toEntity();
+      await _saveCredentialsToStorage(credentials);
+      return Right(EmailLoginSuccess(credentials: credentials));
     } on AuthException catch (e) {
-      // User not registered (code 602) - return sealed class for branching
       if (e.code == ExpectedAPIErrorCode.userNotAuthorized) {
         return Right(EmailUserNotRegistered(email: email));
       }
       return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
     } catch (e) {
-      developer.log('Auth: Unexpected error - $e', name: 'Auth');
       return Left(ServerFailure(message: e.toString()));
     }
   }
@@ -79,12 +70,10 @@ class AuthRepositoryImpl implements AuthRepository {
         snsType: snsType,
       );
 
-      await _saveCredentialsToStorage(result);
-      return Right(SnsLoginSuccess(credentials: result));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
+      final credentials = result.toEntity();
+      await _saveCredentialsToStorage(credentials);
+      return Right(SnsLoginSuccess(credentials: credentials));
     } on AuthException catch (e) {
-      // User not registered (code 618) - return sealed class for branching
       if (e.code == ExpectedAPIErrorCode.notRegistered && e.data != null) {
         return Right(SnsUserNotFound(
           email: e.data!['email'] ?? '',
@@ -95,6 +84,8 @@ class AuthRepositoryImpl implements AuthRepository {
         ));
       }
       return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
     } catch (e) {
       return Left(ServerFailure(message: e.toString()));
     }
@@ -109,27 +100,15 @@ class AuthRepositoryImpl implements AuthRepository {
         refreshToken: refreshToken,
       );
 
-      await _saveCredentialsToStorage(result);
-      return Right(result);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
+      final credentials = result.toEntity();
+      await _saveCredentialsToStorage(credentials);
+      return Right(credentials);
     } on AuthException catch (e) {
       return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
     } catch (e) {
       return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> logout() async {
-    try {
-      await _secureStorage.delete(key: SecureStorageKeys.accessToken);
-      await _secureStorage.delete(key: SecureStorageKeys.refreshToken);
-      await _localStorage.remove(LocalStorageKeys.userEmail);
-      await _localStorage.remove(LocalStorageKeys.loginType);
-      return const Right(null);
-    } catch (e) {
-      return Left(CacheFailure(message: e.toString()));
     }
   }
 
@@ -147,22 +126,12 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Right(null);
       }
 
-      return Right(AuthCredentialsModel(
+      return Right(AuthCredentials(
         accessToken: accessToken,
         tokenType: 'bearer',
         expiresIn: 0,
         refreshToken: refreshToken,
       ));
-    } catch (e) {
-      return Left(CacheFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> saveCredentials(AuthCredentials credentials) async {
-    try {
-      await _saveCredentialsToStorage(credentials);
-      return const Right(null);
     } catch (e) {
       return Left(CacheFailure(message: e.toString()));
     }
@@ -177,38 +146,6 @@ class AuthRepositoryImpl implements AuthRepository {
       key: SecureStorageKeys.refreshToken,
       value: credentials.refreshToken,
     );
-  }
-
-  @override
-  Future<Either<Failure, void>> registerWithSns({
-    required String email,
-    required String code,
-    required String snsType,
-    required bool overage,
-    required bool agree,
-    required bool collect,
-    required bool thirdparty,
-    required bool advertise,
-  }) async {
-    try {
-      await _remoteDataSource.registerWithSns(
-        email: email,
-        code: code,
-        snsType: snsType,
-        overage: overage,
-        agree: agree,
-        collect: collect,
-        thirdparty: thirdparty,
-        advertise: advertise,
-      );
-      return const Right(null);
-    } on AuthException catch (e) {
-      return Left(AuthFailure(message: e.message, code: e.code));
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
   }
 
   @override
@@ -329,6 +266,38 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> registerWithSns({
+    required String email,
+    required String code,
+    required String snsType,
+    required bool overage,
+    required bool agree,
+    required bool collect,
+    required bool thirdparty,
+    required bool advertise,
+  }) async {
+    try {
+      await _remoteDataSource.registerWithSns(
+        email: email,
+        code: code,
+        snsType: snsType,
+        overage: overage,
+        agree: agree,
+        collect: collect,
+        thirdparty: thirdparty,
+        advertise: advertise,
+      );
+      return const Right(null);
+    } on AuthException catch (e) {
+      return Left(AuthFailure(message: e.message, code: e.code));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> saveUserSession({
     required String email,
     required LoginType loginType,
@@ -342,31 +311,4 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, (String?, LoginType?)>> getUserSession() async {
-    try {
-      final email = _localStorage.getString(LocalStorageKeys.userEmail);
-      final typeStr = _localStorage.getString(LocalStorageKeys.loginType);
-      final loginType = typeStr != null
-          ? LoginType.values.firstWhere(
-              (e) => e.name == typeStr,
-              orElse: () => LoginType.email,
-            )
-          : null;
-      return Right((email, loginType));
-    } catch (e) {
-      return Left(CacheFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> clearUserSession() async {
-    try {
-      await _localStorage.remove(LocalStorageKeys.userEmail);
-      await _localStorage.remove(LocalStorageKeys.loginType);
-      return const Right(null);
-    } catch (e) {
-      return Left(CacheFailure(message: e.toString()));
-    }
-  }
 }

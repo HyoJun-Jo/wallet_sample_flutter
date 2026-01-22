@@ -26,22 +26,16 @@ class LoginWithEmailRequested extends LoginEvent {
 }
 
 /// SNS sign-in request (OAuth + API in one flow)
+/// SNS OAuth SDK handles session persistence automatically
 class SnsSignInRequested extends LoginEvent {
   final LoginType loginType;
-  final bool autoLogin;
 
   const SnsSignInRequested({
     required this.loginType,
-    this.autoLogin = false,
   });
 
   @override
-  List<Object?> get props => [loginType, autoLogin];
-}
-
-/// Auto login request (on app start)
-class AutoLoginRequested extends LoginEvent {
-  const AutoLoginRequested();
+  List<Object?> get props => [loginType];
 }
 
 /// Token refresh request
@@ -52,9 +46,4 @@ class TokenRefreshRequested extends LoginEvent {
 /// Logout request
 class LogoutRequested extends LoginEvent {
   const LogoutRequested();
-}
-
-/// Authentication check request
-class LoginCheckRequested extends LoginEvent {
-  const LoginCheckRequested();
 }

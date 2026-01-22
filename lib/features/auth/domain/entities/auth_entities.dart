@@ -71,7 +71,16 @@ class SnsUserNotFound extends SnsLoginResult {
   List<Object?> get props => [email, token, sixcode, language, timeout];
 }
 
-/// Authentication credentials entity
+class SnsAuthResult extends Equatable {
+  final String token;
+  final String? email;
+
+  const SnsAuthResult({required this.token, this.email});
+
+  @override
+  List<Object?> get props => [token, email];
+}
+
 class AuthCredentials extends Equatable {
   final String accessToken;
   final String tokenType;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/auth/auth_session_manager.dart';
+import '../core/session/session_manager.dart';
 import '../di/injection_container.dart';
 import '../features/auth/domain/entities/auth_entities.dart';
 import '../features/auth/presentation/bloc/login_bloc.dart';
@@ -36,7 +36,7 @@ bool _isAuthProtectedPath(String path) {
   return _authProtectedPaths.any((p) => path.startsWith(p));
 }
 
-GoRouter createAppRouter(AuthSessionManager sessionManager) => GoRouter(
+GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
   initialLocation: '/splash',
   observers: [routeObserver],
   refreshListenable: sessionManager,

@@ -11,6 +11,9 @@ class SecureStorageKeys {
 
   // Wallet credentials (uid, wid, sid, password, pvencstr)
   static const String walletCredentials = 'wallet_credentials';
+
+  // User credentials for auto login
+  static const String userPassword = 'user_password';
 }
 
 /// Secure Storage service
@@ -56,5 +59,17 @@ class SecureStorageService {
 
   Future<void> setRefreshToken(String token) async {
     await write(key: SecureStorageKeys.refreshToken, value: token);
+  }
+
+  Future<String?> getUserPassword() async {
+    return await read(key: SecureStorageKeys.userPassword);
+  }
+
+  Future<void> setUserPassword(String password) async {
+    await write(key: SecureStorageKeys.userPassword, value: password);
+  }
+
+  Future<void> deleteUserPassword() async {
+    await delete(key: SecureStorageKeys.userPassword);
   }
 }

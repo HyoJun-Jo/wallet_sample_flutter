@@ -1,35 +1,30 @@
 import 'package:dartz/dartz.dart';
-import 'package:equatable/equatable.dart';
+
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../entities/auth_entities.dart';
 import '../repositories/auth_repository.dart';
 
-/// Token refresh use case
-class RefreshTokenUseCase
-    implements UseCase<AuthCredentials, RefreshTokenParams> {
+class RefreshTokenUseCase implements UseCase<AuthCredentials, NoParams> {
   final AuthRepository _repository;
 
   RefreshTokenUseCase({required AuthRepository repository})
       : _repository = repository;
 
   @override
-  Future<Either<Failure, AuthCredentials>> call(
-      RefreshTokenParams params) async {
-    return await _repository.refreshToken(
-      refreshToken: params.refreshToken,
+  Future<Either<Failure, AuthCredentials>> call(NoParams params) async {
+    final savedCredentials = await _repository.getSavedCredentials();
+
+    return savedCredentials.fold(
+      (failure) => Left(failure),
+      (credentials) async {
+        if (credentials == null) {
+          return Left(AuthFailure(message: 'No saved credentials'));
+        }
+        return await _repository.refreshToken(
+          refreshToken: credentials.refreshToken,
+        );
+      },
     );
   }
-}
-
-/// Token refresh parameters
-class RefreshTokenParams extends Equatable {
-  final String refreshToken;
-
-  const RefreshTokenParams({
-    required this.refreshToken,
-  });
-
-  @override
-  List<Object?> get props => [refreshToken];
 }

@@ -5,7 +5,6 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/auth_repository.dart';
 
-/// Send verification code use case
 class SendVerificationCodeUseCase
     implements UseCase<void, SendVerificationCodeParams> {
   final AuthRepository _repository;
@@ -22,7 +21,6 @@ class SendVerificationCodeUseCase
   }
 }
 
-/// Send verification code parameters
 class SendVerificationCodeParams extends Equatable {
   final String email;
   final String template;

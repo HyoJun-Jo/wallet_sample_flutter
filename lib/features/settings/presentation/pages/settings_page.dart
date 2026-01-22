@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../../../core/auth/auth_session_manager.dart';
+import '../../../../core/session/session_manager.dart';
 import '../../../../core/storage/local_storage.dart';
-import '../../../../core/storage/secure_storage.dart';
 import '../../../../di/injection_container.dart';
 import '../../../auth/domain/entities/auth_entities.dart';
 import '../../../wallet/domain/repositories/wallet_repository.dart';
@@ -81,13 +80,7 @@ class _SettingsPageState extends State<SettingsPage> {
     );
 
     if (confirmed == true) {
-      final secureStorage = sl<SecureStorageService>();
-      final localStorage = sl<LocalStorageService>();
-      final sessionManager = sl<AuthSessionManager>();
-
-      await secureStorage.deleteAll();
-      await localStorage.clear();
-      sessionManager.onLogout();
+      await sl<SessionManager>().logout();
     }
   }
 

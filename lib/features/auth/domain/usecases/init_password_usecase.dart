@@ -5,7 +5,6 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/auth_repository.dart';
 
-/// Initialize password use case
 class InitPasswordUseCase implements UseCase<void, InitPasswordParams> {
   final AuthRepository _repository;
 
@@ -22,7 +21,6 @@ class InitPasswordUseCase implements UseCase<void, InitPasswordParams> {
   }
 }
 
-/// Initialize password parameters
 class InitPasswordParams extends Equatable {
   final String email;
   final String password;

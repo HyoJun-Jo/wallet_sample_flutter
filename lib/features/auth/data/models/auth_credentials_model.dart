@@ -1,13 +1,18 @@
 import '../../domain/entities/auth_entities.dart';
 
-/// Authentication credentials model
-class AuthCredentialsModel extends AuthCredentials {
+class AuthCredentialsModel {
+  final String accessToken;
+  final String tokenType;
+  final int expiresIn;
+  final String refreshToken;
+  final String? idToken;
+
   const AuthCredentialsModel({
-    required super.accessToken,
-    required super.tokenType,
-    required super.expiresIn,
-    required super.refreshToken,
-    super.idToken,
+    required this.accessToken,
+    required this.tokenType,
+    required this.expiresIn,
+    required this.refreshToken,
+    this.idToken,
   });
 
   factory AuthCredentialsModel.fromJson(Map<String, dynamic> json) {
@@ -28,5 +33,15 @@ class AuthCredentialsModel extends AuthCredentials {
       'refresh_token': refreshToken,
       if (idToken != null) 'id_token': idToken,
     };
+  }
+
+  AuthCredentials toEntity() {
+    return AuthCredentials(
+      accessToken: accessToken,
+      tokenType: tokenType,
+      expiresIn: expiresIn,
+      refreshToken: refreshToken,
+      idToken: idToken,
+    );
   }
 }

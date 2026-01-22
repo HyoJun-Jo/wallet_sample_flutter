@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'core/auth/auth_session_manager.dart';
+import 'core/session/session_manager.dart';
 import 'di/injection_container.dart';
 import 'routes/app_router.dart';
 
@@ -18,7 +18,7 @@ class _WalletSampleAppState extends State<WalletSampleApp> {
   @override
   void initState() {
     super.initState();
-    _router = createAppRouter(sl<AuthSessionManager>());
+    _router = createAppRouter(sl<SessionManager>());
   }
 
   @override

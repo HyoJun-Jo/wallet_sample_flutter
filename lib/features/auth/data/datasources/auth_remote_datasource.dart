@@ -9,7 +9,7 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/auth_credentials_model.dart';
 
-/// Email template types for verification emails
+/// Email template types
 enum EmailTemplate {
   verify,
   changepassword,
@@ -28,56 +28,34 @@ enum GrantType {
   String toString() => value.isNotEmpty ? value : name;
 }
 
-/// Auth remote data source interface
 abstract class AuthRemoteDataSource {
-  /// Login with email and encrypted password
-  /// [encryptedPassword] must be encrypted using SecureChannel
   Future<AuthCredentialsModel> loginWithEmail({
     required String email,
     required String encryptedPassword,
     required String secureChannelId,
   });
 
-  /// Login with SNS token (Google, Apple, Kakao, etc.)
   Future<AuthCredentialsModel> loginWithSnsToken({
     required String snsToken,
     required String snsType,
   });
 
-  /// Refresh access token
   Future<AuthCredentialsModel> refreshToken({
     required String refreshToken,
   });
 
-  /// Register with SNS (after code 618 - user not found)
-  Future<void> registerWithSns({
-    required String email,
-    required String code,
-    required String snsType,
-    required bool overage,
-    required bool agree,
-    required bool collect,
-    required bool thirdparty,
-    required bool advertise,
-  });
-
-  /// Check if email is available for registration
-  /// Returns true if email is available (user not found)
   Future<bool> checkEmailAvailable({required String email});
 
-  /// Send verification code to email
   Future<void> sendVerificationCode({
     required String email,
     required EmailTemplate template,
   });
 
-  /// Verify email code
   Future<void> verifyCode({
     required String email,
     required String code,
   });
 
-  /// Initialize password for email registration
   Future<void> initPassword({
     required String email,
     required String encryptedPassword,
@@ -85,12 +63,22 @@ abstract class AuthRemoteDataSource {
     required String code,
   });
 
-  /// Register with email and password
   Future<void> registerWithEmail({
     required String email,
     required String encryptedPassword,
     required String secureChannelId,
     required String code,
+    required bool overage,
+    required bool agree,
+    required bool collect,
+    required bool thirdparty,
+    required bool advertise,
+  });
+
+  Future<void> registerWithSns({
+    required String email,
+    required String code,
+    required String snsType,
     required bool overage,
     required bool agree,
     required bool collect,
@@ -106,7 +94,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   AuthRemoteDataSourceImpl({required ApiClient apiClient})
       : _apiClient = apiClient;
 
-  /// Create Basic Auth header from AppConstants
   String get _basicAuth {
     final credentials =
         '${AppConstants.clientId}:${AppConstants.clientSecret}';
@@ -144,21 +131,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       final data = e.response?.data;
 
-      // Check for user not authorized (code 602 - not registered)
       if (data is Map && data['code'] == ExpectedAPIErrorCode.userNotAuthorized) {
         throw AuthException(
-          message: 'User not registered. Please sign up first.',
+          message: 'User not registered',
           code: ExpectedAPIErrorCode.userNotAuthorized,
         );
       }
 
-      String errorMessage = 'Login failed';
-      if (data is Map) {
-        errorMessage = data['msg'] ?? data['error'] ?? data['message'] ?? errorMessage;
-      }
-
       throw ServerException(
-        message: errorMessage,
+        message: _extractErrorMessage(data, 'Login failed'),
         statusCode: e.response?.statusCode,
       );
     }
@@ -179,9 +160,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Authorization': _basicAuth,
-          },
+          headers: {'Authorization': _basicAuth},
           extra: {'skipAuth': true},
         ),
       );
@@ -190,9 +169,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
     } on DioException catch (e) {
       final data = e.response?.data;
 
-      // Check for registration required (code 618)
       if (data is Map && data['code'] == 618) {
-        // msg contains the actual registration data (can be String or Map)
         final msgData = data['msg'];
         final Map<String, dynamic> registrationInfo;
 
@@ -231,9 +208,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Authorization': _basicAuth,
-          },
+          headers: {'Authorization': _basicAuth},
           extra: {'skipAuth': true},
         ),
       );
@@ -248,74 +223,19 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   }
 
   @override
-  Future<void> registerWithSns({
-    required String email,
-    required String code,
-    required String snsType,
-    required bool overage,
-    required bool agree,
-    required bool collect,
-    required bool thirdparty,
-    required bool advertise,
-  }) async {
-    try {
-      await _apiClient.post(
-        ApiEndpoints.snsJoin,
-        data: {
-          'username': email,
-          'code': code,
-          'serviceid': AppConstants.tokenAudience,
-          'socialtype': snsType,
-          'overage': overage ? 1 : 0,
-          'agree': agree ? 1 : 0,
-          'collect': collect ? 1 : 0,
-          'thirdparty': thirdparty ? 1 : 0,
-          'advertise': advertise ? 1 : 0,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Authorization': _basicAuth,
-          },
-          extra: {'skipAuth': true},
-        ),
-      );
-    } on DioException catch (e) {
-      final data = e.response?.data;
-
-      // Check for email already in use (code 606)
-      if (data is Map && data['code'] == ExpectedAPIErrorCode.emailAlreadyInUse) {
-        throw AuthException(
-          message: 'Email already in use',
-          code: ExpectedAPIErrorCode.emailAlreadyInUse,
-        );
-      }
-
-      throw ServerException(
-        message: data?['msg'] ?? 'Registration failed',
-        statusCode: e.response?.statusCode,
-      );
-    }
-  }
-
-  @override
   Future<bool> checkEmailAvailable({required String email}) async {
     try {
       await _apiClient.get(
         ApiEndpoints.users(email),
-        queryParameters: {
-          'serviceid': AppConstants.tokenAudience,
-        },
+        queryParameters: {'serviceid': AppConstants.tokenAudience},
         options: Options(
           headers: {'Authorization': _basicAuth},
           extra: {'skipAuth': true},
         ),
       );
-      // 200 OK = user not found → available for registration
       return true;
     } on DioException catch (e) {
       final data = e.response?.data;
-      // Error + code 606 = email already in use
       if (data is Map && data['code'] == ExpectedAPIErrorCode.emailAlreadyInUse) {
         return false;
       }
@@ -360,7 +280,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         data: {'code': code},
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
-          headers: {'Authorization': _basicAuth},
           extra: {'skipAuth': true},
         ),
       );
@@ -453,5 +372,60 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         statusCode: e.response?.statusCode,
       );
     }
+  }
+
+  @override
+  Future<void> registerWithSns({
+    required String email,
+    required String code,
+    required String snsType,
+    required bool overage,
+    required bool agree,
+    required bool collect,
+    required bool thirdparty,
+    required bool advertise,
+  }) async {
+    try {
+      await _apiClient.post(
+        ApiEndpoints.snsJoin,
+        data: {
+          'username': email,
+          'code': code,
+          'serviceid': AppConstants.tokenAudience,
+          'socialtype': snsType,
+          'overage': overage ? 1 : 0,
+          'agree': agree ? 1 : 0,
+          'collect': collect ? 1 : 0,
+          'thirdparty': thirdparty ? 1 : 0,
+          'advertise': advertise ? 1 : 0,
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {'Authorization': _basicAuth},
+          extra: {'skipAuth': true},
+        ),
+      );
+    } on DioException catch (e) {
+      final data = e.response?.data;
+
+      if (data is Map && data['code'] == ExpectedAPIErrorCode.emailAlreadyInUse) {
+        throw AuthException(
+          message: 'Email already in use',
+          code: ExpectedAPIErrorCode.emailAlreadyInUse,
+        );
+      }
+
+      throw ServerException(
+        message: data?['msg'] ?? 'Registration failed',
+        statusCode: e.response?.statusCode,
+      );
+    }
+  }
+
+  String _extractErrorMessage(dynamic data, String defaultMessage) {
+    if (data is Map) {
+      return data['msg'] ?? data['error'] ?? data['message'] ?? defaultMessage;
+    }
+    return defaultMessage;
   }
 }

@@ -8,14 +8,12 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../models/sns_auth_result_model.dart';
+import '../../domain/entities/auth_entities.dart';
 
 abstract class SnsAuthDataSource {
-  Future<SnsAuthResultModel?> signInWithGoogle();
-  Future<SnsAuthResultModel?> signInWithApple();
-  Future<SnsAuthResultModel?> signInWithKakao();
-  Future<void> signOut();
-  bool get isAppleSignInAvailable;
+  Future<SnsAuthResult?> signInWithGoogle();
+  Future<SnsAuthResult?> signInWithApple();
+  Future<SnsAuthResult?> signInWithKakao();
 }
 
 class SnsAuthDataSourceImpl implements SnsAuthDataSource {
@@ -25,10 +23,7 @@ class SnsAuthDataSourceImpl implements SnsAuthDataSource {
   );
 
   @override
-  bool get isAppleSignInAvailable => Platform.isIOS;
-
-  @override
-  Future<SnsAuthResultModel?> signInWithGoogle() async {
+  Future<SnsAuthResult?> signInWithGoogle() async {
     await _googleSignIn.signOut();
 
     final account = await _googleSignIn.signIn();
@@ -38,11 +33,11 @@ class SnsAuthDataSourceImpl implements SnsAuthDataSource {
     final idToken = authentication.idToken;
     if (idToken == null) return null;
 
-    return SnsAuthResultModel(token: idToken, email: account.email);
+    return SnsAuthResult(token: idToken, email: account.email);
   }
 
   @override
-  Future<SnsAuthResultModel?> signInWithApple() async {
+  Future<SnsAuthResult?> signInWithApple() async {
     if (!Platform.isIOS) {
       throw UnsupportedError('Apple Sign-In is only available on iOS');
     }
@@ -61,11 +56,11 @@ class SnsAuthDataSourceImpl implements SnsAuthDataSource {
     final identityToken = credential.identityToken;
     if (identityToken == null) return null;
 
-    return SnsAuthResultModel(token: identityToken, email: credential.email);
+    return SnsAuthResult(token: identityToken, email: credential.email);
   }
 
   @override
-  Future<SnsAuthResultModel?> signInWithKakao() async {
+  Future<SnsAuthResult?> signInWithKakao() async {
     final isInstalled = await isKakaoTalkInstalled();
 
     OAuthToken token;
@@ -81,19 +76,7 @@ class SnsAuthDataSourceImpl implements SnsAuthDataSource {
       email = user.kakaoAccount?.email;
     } catch (_) {}
 
-    return SnsAuthResultModel(token: token.accessToken, email: email);
-  }
-
-  @override
-  Future<void> signOut() async {
-    try {
-      if (await _googleSignIn.isSignedIn()) {
-        await _googleSignIn.signOut();
-      }
-      try {
-        await UserApi.instance.logout();
-      } catch (_) {}
-    } catch (_) {}
+    return SnsAuthResult(token: token.accessToken, email: email);
   }
 
   String _generateNonce([int length = 32]) {

@@ -42,7 +42,6 @@ class _LoginPageState extends State<LoginPage> {
   void _onSnsLogin(LoginType loginType) {
     context.read<LoginBloc>().add(SnsSignInRequested(
           loginType: loginType,
-          autoLogin: _autoLogin,
         ));
   }
 

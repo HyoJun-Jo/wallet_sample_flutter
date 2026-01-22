@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 
@@ -7,8 +9,6 @@ import '../entities/auth_entities.dart';
 import '../repositories/auth_repository.dart';
 import '../repositories/sns_auth_repository.dart';
 
-/// SNS token login use case
-/// OAuth SDK를 통해 토큰을 획득하고 WaaS API로 인증하는 통합 UseCase
 class SnsTokenLoginUseCase
     implements UseCase<SnsLoginResult, SnsTokenLoginParams> {
   final SnsAuthRepository _snsAuthRepository;
@@ -23,7 +23,6 @@ class SnsTokenLoginUseCase
   @override
   Future<Either<Failure, SnsLoginResult>> call(
       SnsTokenLoginParams params) async {
-    // 1. OAuth SDK로 토큰 획득
     final snsResult = await _snsAuthRepository.signIn(params.loginType);
 
     return snsResult.fold(
@@ -33,7 +32,6 @@ class SnsTokenLoginUseCase
           return Left(AuthFailure(message: 'SNS sign-in cancelled'));
         }
 
-        // 2. WaaS API로 인증
         final loginResult = await _authRepository.loginWithSnsToken(
           snsToken: result.token,
           snsType: params.loginType.name,
@@ -41,9 +39,16 @@ class SnsTokenLoginUseCase
 
         return loginResult.fold(
           (failure) => Left(failure),
-          (snsLoginResult) {
-            // 이메일 정보 추가 (SDK에서 받은 것 사용)
+          (snsLoginResult) async {
             if (snsLoginResult is SnsLoginSuccess) {
+              final email = result.email ??
+                  _extractEmailFromToken(snsLoginResult.credentials.accessToken);
+              if (email != null) {
+                await _authRepository.saveUserSession(
+                  email: email,
+                  loginType: params.loginType,
+                );
+              }
               return Right(SnsLoginSuccess(
                 credentials: snsLoginResult.credentials,
                 snsEmail: result.email,
@@ -55,18 +60,42 @@ class SnsTokenLoginUseCase
       },
     );
   }
+
+  String? _extractEmailFromToken(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+
+      final payload = utf8.decode(
+        base64Url.decode(base64Url.normalize(parts[1])),
+      );
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+
+      if (data['email'] != null) {
+        return data['email'] as String;
+      }
+
+      if (data['preferred_username'] != null) {
+        final username = data['preferred_username'] as String;
+        if (username.contains('@')) {
+          return username;
+        }
+      }
+
+      return data['sub'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
-/// SNS token login parameters
 class SnsTokenLoginParams extends Equatable {
   final LoginType loginType;
-  final bool autoLogin;
 
   const SnsTokenLoginParams({
     required this.loginType,
-    this.autoLogin = false,
   });
 
   @override
-  List<Object?> get props => [loginType, autoLogin];
+  List<Object?> get props => [loginType];
 }

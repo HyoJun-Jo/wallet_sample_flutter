@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:developer' as developer;
 
 import 'package:dio/dio.dart';
-import '../../auth/auth_session_manager.dart';
+import '../../session/session_manager.dart';
 import '../../constants/api_endpoints.dart';
 import '../../constants/app_constants.dart';
 import '../../storage/secure_storage.dart';
@@ -10,7 +10,7 @@ import '../../storage/secure_storage.dart';
 /// Authentication interceptor - automatically attaches JWT token and handles refresh
 class AuthInterceptor extends QueuedInterceptorsWrapper {
   final SecureStorageService _secureStorage;
-  final AuthSessionManager _sessionManager;
+  final SessionManager _sessionManager;
 
   /// Separate Dio instance for refresh requests (avoids interceptor loop)
   Dio? _refreshDio;
@@ -20,7 +20,7 @@ class AuthInterceptor extends QueuedInterceptorsWrapper {
 
   AuthInterceptor({
     required SecureStorageService secureStorage,
-    required AuthSessionManager sessionManager,
+    required SessionManager sessionManager,
   })  : _secureStorage = secureStorage,
         _sessionManager = sessionManager;
 

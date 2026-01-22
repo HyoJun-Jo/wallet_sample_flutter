@@ -5,7 +5,28 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/auth_repository.dart';
 
-/// Register with email parameters
+class RegisterWithEmailUseCase
+    implements UseCase<void, RegisterWithEmailParams> {
+  final AuthRepository _repository;
+
+  RegisterWithEmailUseCase({required AuthRepository repository})
+      : _repository = repository;
+
+  @override
+  Future<Either<Failure, void>> call(RegisterWithEmailParams params) async {
+    return await _repository.registerWithEmail(
+      email: params.email,
+      password: params.password,
+      code: params.code,
+      overage: params.overage,
+      agree: params.agree,
+      collect: params.collect,
+      thirdparty: params.thirdparty,
+      advertise: params.advertise,
+    );
+  }
+}
+
 class RegisterWithEmailParams extends Equatable {
   final String email;
   final String password;
@@ -38,27 +59,4 @@ class RegisterWithEmailParams extends Equatable {
         thirdparty,
         advertise,
       ];
-}
-
-/// Register with email use case
-class RegisterWithEmailUseCase
-    implements UseCase<void, RegisterWithEmailParams> {
-  final AuthRepository _repository;
-
-  RegisterWithEmailUseCase({required AuthRepository repository})
-      : _repository = repository;
-
-  @override
-  Future<Either<Failure, void>> call(RegisterWithEmailParams params) async {
-    return await _repository.registerWithEmail(
-      email: params.email,
-      password: params.password,
-      code: params.code,
-      overage: params.overage,
-      agree: params.agree,
-      collect: params.collect,
-      thirdparty: params.thirdparty,
-      advertise: params.advertise,
-    );
-  }
 }

@@ -12,9 +12,6 @@ class SnsAuthRepositoryImpl implements SnsAuthRepository {
       : _dataSource = dataSource;
 
   @override
-  bool get isAppleSignInAvailable => _dataSource.isAppleSignInAvailable;
-
-  @override
   Future<Either<Failure, SnsAuthResult?>> signIn(LoginType loginType) async {
     try {
       final result = switch (loginType) {
@@ -24,21 +21,9 @@ class SnsAuthRepositoryImpl implements SnsAuthRepository {
         _ => throw UnsupportedError('${loginType.name} login not supported'),
       };
 
-      if (result == null) return const Right(null);
-
-      return Right(SnsAuthResult(token: result.token, email: result.email));
+      return Right(result);
     } on UnsupportedError catch (e) {
       return Left(ServerFailure(message: e.message ?? 'Unsupported login type'));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> signOut() async {
-    try {
-      await _dataSource.signOut();
-      return const Right(null);
     } catch (e) {
       return Left(ServerFailure(message: e.toString()));
     }

@@ -1,7 +1,7 @@
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../core/auth/auth_session_manager.dart';
+import '../core/session/session_manager.dart';
 import '../core/constants/app_constants.dart';
 import '../core/crypto/secure_channel_service.dart';
 // SNS Auth (OAuth SDK)
@@ -111,9 +111,12 @@ Future<void> init() async {
     () => ChainRepositoryImpl(),
   );
 
-  // Auth Session Manager
-  sl.registerLazySingleton<AuthSessionManager>(
-    () => AuthSessionManager(),
+  // Session Manager
+  sl.registerLazySingleton<SessionManager>(
+    () => SessionManager(
+      secureStorage: sl(),
+      localStorage: sl(),
+    ),
   );
 
   // Interceptors
@@ -168,7 +171,11 @@ Future<void> init() async {
   );
 
   // UseCases
-  sl.registerLazySingleton(() => EmailLoginUseCase(repository: sl()));
+  sl.registerLazySingleton(() => EmailLoginUseCase(
+        repository: sl(),
+        localStorage: sl(),
+        secureStorage: sl(),
+      ));
   sl.registerLazySingleton(() => SnsTokenLoginUseCase(
         snsAuthRepository: sl(),
         authRepository: sl(),
@@ -186,8 +193,7 @@ Future<void> init() async {
         emailLoginUseCase: sl(),
         snsTokenLoginUseCase: sl(),
         refreshTokenUseCase: sl(),
-        authRepository: sl(),
-        localStorage: sl(),
+        sessionManager: sl(),
       ));
   sl.registerFactory(() => SnsRegistrationBloc(
         registerWithSnsUseCase: sl(),

@@ -5,21 +5,6 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../repositories/auth_repository.dart';
 
-/// Verify code parameters
-class VerifyCodeParams extends Equatable {
-  final String email;
-  final String code;
-
-  const VerifyCodeParams({
-    required this.email,
-    required this.code,
-  });
-
-  @override
-  List<Object?> get props => [email, code];
-}
-
-/// Verify code use case
 class VerifyCodeUseCase implements UseCase<void, VerifyCodeParams> {
   final AuthRepository _repository;
 
@@ -33,4 +18,17 @@ class VerifyCodeUseCase implements UseCase<void, VerifyCodeParams> {
       code: params.code,
     );
   }
+}
+
+class VerifyCodeParams extends Equatable {
+  final String email;
+  final String code;
+
+  const VerifyCodeParams({
+    required this.email,
+    required this.code,
+  });
+
+  @override
+  List<Object?> get props => [email, code];
 }
