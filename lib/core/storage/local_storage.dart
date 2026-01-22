@@ -4,8 +4,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LocalStorageKeys {
   LocalStorageKeys._();
 
-  static const String isLoggedIn = 'is_logged_in';
-  static const String selectedNetwork = 'selected_network';
   static const String userEmail = 'user_email';
   static const String loginType = 'login_type';
   static const String autoLogin = 'auto_login';
