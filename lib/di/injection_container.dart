@@ -4,7 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/auth/auth_session_manager.dart';
 import '../core/constants/app_constants.dart';
 import '../core/crypto/secure_channel_service.dart';
-import '../core/services/sns_auth_service.dart';
+// SNS Auth (OAuth SDK)
+import '../features/auth/data/datasources/sns_auth_datasource.dart';
+import '../features/auth/domain/repositories/sns_auth_repository.dart';
+import '../features/auth/data/repositories/sns_auth_repository_impl.dart';
 import '../core/network/api_client.dart';
 import '../core/network/interceptors/auth_interceptor.dart';
 import '../core/network/interceptors/error_interceptor.dart';
@@ -141,9 +144,12 @@ Future<void> init() async {
     ),
   );
 
-  // SNS Auth
-  sl.registerLazySingleton<SnsAuthService>(
-    () => SnsAuthServiceImpl(),
+  // SNS Auth (OAuth SDK)
+  sl.registerLazySingleton<SnsAuthDataSource>(
+    () => SnsAuthDataSourceImpl(),
+  );
+  sl.registerLazySingleton<SnsAuthRepository>(
+    () => SnsAuthRepositoryImpl(dataSource: sl()),
   );
 
   // DataSource
@@ -163,7 +169,10 @@ Future<void> init() async {
 
   // UseCases
   sl.registerLazySingleton(() => EmailLoginUseCase(repository: sl()));
-  sl.registerLazySingleton(() => SnsTokenLoginUseCase(repository: sl()));
+  sl.registerLazySingleton(() => SnsTokenLoginUseCase(
+        snsAuthRepository: sl(),
+        authRepository: sl(),
+      ));
   sl.registerLazySingleton(() => RefreshTokenUseCase(repository: sl()));
   sl.registerLazySingleton(() => RegisterWithSnsUseCase(repository: sl()));
   sl.registerLazySingleton(() => CheckEmailUseCase(repository: sl()));

@@ -43,11 +43,12 @@ sealed class SnsLoginResult extends Equatable {
 /// SNS Login successful - credentials issued
 class SnsLoginSuccess extends SnsLoginResult {
   final AuthCredentials credentials;
+  final String? snsEmail;
 
-  const SnsLoginSuccess({required this.credentials});
+  const SnsLoginSuccess({required this.credentials, this.snsEmail});
 
   @override
-  List<Object?> get props => [credentials];
+  List<Object?> get props => [credentials, snsEmail];
 }
 
 /// SNS Login - user not found in system (code 618)

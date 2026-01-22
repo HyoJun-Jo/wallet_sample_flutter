@@ -25,22 +25,18 @@ class LoginWithEmailRequested extends LoginEvent {
   List<Object?> get props => [email, password, autoLogin];
 }
 
-/// SNS token login request
-class LoginWithSnsRequested extends LoginEvent {
-  final String snsToken;
+/// SNS sign-in request (OAuth + API in one flow)
+class SnsSignInRequested extends LoginEvent {
   final LoginType loginType;
   final bool autoLogin;
-  final String? snsEmail;
 
-  const LoginWithSnsRequested({
-    required this.snsToken,
+  const SnsSignInRequested({
     required this.loginType,
     this.autoLogin = false,
-    this.snsEmail,
   });
 
   @override
-  List<Object?> get props => [snsToken, loginType, autoLogin, snsEmail];
+  List<Object?> get props => [loginType, autoLogin];
 }
 
 /// Auto login request (on app start)

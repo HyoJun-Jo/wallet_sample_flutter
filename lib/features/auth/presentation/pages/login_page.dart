@@ -3,14 +3,11 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/services/sns_auth_service.dart' show SnsAuthService, SnsAuthResult;
-import '../../../../di/injection_container.dart';
 import '../../domain/entities/auth_entities.dart';
 import '../bloc/login_bloc.dart';
 import '../bloc/login_event.dart';
 import '../bloc/login_state.dart';
 
-/// Login page
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -20,8 +17,8 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController(text: 'cho5652@gmail.com');
-  final _passwordController = TextEditingController(text: 'Whgywnssla1!');
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _autoLogin = true;
 
@@ -42,45 +39,11 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  Future<void> _onSnsLogin(LoginType loginType) async {
-    final snsAuthService = sl<SnsAuthService>();
-    SnsAuthResult? result;
-
-    try {
-      switch (loginType) {
-        case LoginType.google:
-          result = await snsAuthService.signInWithGoogle();
-        case LoginType.apple:
-          result = await snsAuthService.signInWithApple();
-        case LoginType.kakao:
-          result = await snsAuthService.signInWithKakao();
-        case LoginType.email:
-        case LoginType.naver:
-        case LoginType.line:
-          // Not implemented
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('${loginType.name} login not supported')),
-            );
-          }
-          return;
-      }
-
-      if (result != null && mounted) {
-        context.read<LoginBloc>().add(LoginWithSnsRequested(
-              snsToken: result.token,
-              loginType: loginType,
-              autoLogin: _autoLogin,
-              snsEmail: result.email,
-            ));
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loginType.name} login failed: $e')),
-        );
-      }
-    }
+  void _onSnsLogin(LoginType loginType) {
+    context.read<LoginBloc>().add(SnsSignInRequested(
+          loginType: loginType,
+          autoLogin: _autoLogin,
+        ));
   }
 
   @override
@@ -93,10 +56,8 @@ class _LoginPageState extends State<LoginPage> {
         child: BlocConsumer<LoginBloc, LoginState>(
           listener: (context, state) {
             if (state is LoginAuthenticated) {
-              // Check if wallet exists, otherwise create one
               context.go('/wallet/create');
             } else if (state is SnsRegistrationRequired) {
-              // Navigate to registration page with SNS user info
               context.go('/register/sns', extra: {
                 'email': state.email,
                 'sixcode': state.sixcode,
@@ -119,7 +80,6 @@ class _LoginPageState extends State<LoginPage> {
                   children: [
                     const SizedBox(height: 40),
 
-                    // Logo or title
                     const Icon(
                       Icons.account_balance_wallet,
                       size: 80,
@@ -136,7 +96,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 48),
 
-                    // Email input
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -157,7 +116,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Password input
                     TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
@@ -187,7 +145,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Auto login checkbox and Forgot password
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -219,7 +176,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Login button
                     ElevatedButton(
                       onPressed: state is LoginLoading ? null : _onEmailLogin,
                       style: ElevatedButton.styleFrom(
@@ -238,7 +194,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Divider
                     const Row(
                       children: [
                         Expanded(child: Divider()),
@@ -251,8 +206,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 24),
 
-                    // SNS login buttons
-                    // Google Sign-In: Android only
                     if (Platform.isAndroid) ...[
                       _buildSnsLoginButton(
                         label: 'Login with Google',
@@ -265,7 +218,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       const SizedBox(height: 12),
                     ],
-                    // Apple Sign-In: iOS only
                     if (Platform.isIOS) ...[
                       _buildSnsLoginButton(
                         label: 'Login with Apple',
@@ -289,7 +241,6 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Sign up with email
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [

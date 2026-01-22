@@ -10,7 +10,6 @@ import '../../domain/usecases/refresh_token_usecase.dart';
 import 'login_event.dart';
 import 'login_state.dart';
 
-/// Login BLoC - handles email/SNS login, token refresh, and logout
 class LoginBloc extends Bloc<LoginEvent, LoginState> {
   final EmailLoginUseCase _emailLoginUseCase;
   final SnsTokenLoginUseCase _snsTokenLoginUseCase;
@@ -31,7 +30,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         _localStorage = localStorage,
         super(const LoginInitial()) {
     on<LoginWithEmailRequested>(_onEmailLoginRequested);
-    on<LoginWithSnsRequested>(_onSnsTokenLoginRequested);
+    on<SnsSignInRequested>(_onSnsSignInRequested);
     on<TokenRefreshRequested>(_onRefreshTokenRequested);
     on<LogoutRequested>(_onLogoutRequested);
     on<LoginCheckRequested>(_onCheckRequested);
@@ -54,12 +53,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       (loginResult) async {
         switch (loginResult) {
           case EmailLoginSuccess(:final credentials):
-            // Save user session
             await _authRepository.saveUserSession(
               email: event.email,
               loginType: LoginType.email,
             );
-            // Save auto login preference
             await _localStorage.setBool(LocalStorageKeys.autoLogin, event.autoLogin);
             emit(LoginAuthenticated(credentials: credentials));
           case EmailUserNotRegistered(:final email):
@@ -69,31 +66,29 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     );
   }
 
-  Future<void> _onSnsTokenLoginRequested(
-    LoginWithSnsRequested event,
+  Future<void> _onSnsSignInRequested(
+    SnsSignInRequested event,
     Emitter<LoginState> emit,
   ) async {
     emit(const LoginLoading());
 
     final result = await _snsTokenLoginUseCase(SnsTokenLoginParams(
-      snsToken: event.snsToken,
       loginType: event.loginType,
+      autoLogin: event.autoLogin,
     ));
 
     await result.fold(
       (failure) async => emit(LoginError(message: failure.message)),
       (loginResult) async {
         switch (loginResult) {
-          case SnsLoginSuccess(:final credentials):
-            // Use email from SNS SDK directly, fall back to JWT extraction if not available
-            final email = event.snsEmail ?? _extractEmailFromToken(credentials.accessToken);
+          case SnsLoginSuccess(:final credentials, :final snsEmail):
+            final email = snsEmail ?? _extractEmailFromToken(credentials.accessToken);
             if (email != null) {
               await _authRepository.saveUserSession(
                 email: email,
                 loginType: event.loginType,
               );
             }
-            // Save auto login preference
             await _localStorage.setBool(LocalStorageKeys.autoLogin, event.autoLogin);
             emit(LoginAuthenticated(credentials: credentials));
           case SnsUserNotFound(
@@ -116,8 +111,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     );
   }
 
-  /// Extract email from JWT token payload
-  /// Checks 'email' field first, then falls back to 'sub'
   String? _extractEmailFromToken(String token) {
     try {
       final parts = token.split('.');
@@ -128,12 +121,10 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       );
       final data = jsonDecode(payload) as Map<String, dynamic>;
 
-      // Try email field first (standard claim)
       if (data['email'] != null) {
         return data['email'] as String;
       }
 
-      // Try preferred_username (some providers use this)
       if (data['preferred_username'] != null) {
         final username = data['preferred_username'] as String;
         if (username.contains('@')) {
@@ -141,7 +132,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
         }
       }
 
-      // Fall back to sub (may be user ID for some providers like Kakao)
       return data['sub'] as String?;
     } catch (_) {
       return null;
@@ -187,7 +177,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     AutoLoginRequested event,
     Emitter<LoginState> emit,
   ) async {
-    // Check if auto login is enabled
     final autoLogin = _localStorage.getBool(LocalStorageKeys.autoLogin) ?? false;
     if (!autoLogin) {
       emit(const LoginUnauthenticated());
@@ -196,7 +185,6 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
     emit(const LoginLoading());
 
-    // Get saved credentials
     final savedCredentials = await _authRepository.getSavedCredentials();
 
     await savedCredentials.fold(
@@ -207,14 +195,12 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
           return;
         }
 
-        // Try to refresh token to ensure it's valid
         final result = await _refreshTokenUseCase(RefreshTokenParams(
           refreshToken: credentials.refreshToken,
         ));
 
         result.fold(
           (failure) {
-            // Token refresh failed, clear auto login and require manual login
             _localStorage.setBool(LocalStorageKeys.autoLogin, false);
             emit(const LoginUnauthenticated());
           },
