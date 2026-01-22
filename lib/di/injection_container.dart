@@ -10,7 +10,7 @@ import '../core/network/interceptors/auth_interceptor.dart';
 import '../core/network/interceptors/error_interceptor.dart';
 import '../core/storage/secure_storage.dart';
 import '../core/storage/local_storage.dart';
-import '../core/services/chain_service.dart';
+import '../core/chain/chain_repository.dart';
 
 // Auth
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
@@ -103,9 +103,9 @@ Future<void> init() async {
     () => LocalStorageService(),
   );
 
-  // Chain Service
-  sl.registerLazySingleton<ChainService>(
-    () => ChainService(),
+  // Chain Repository
+  sl.registerLazySingleton<ChainRepository>(
+    () => ChainRepositoryImpl(),
   );
 
   // Auth Session Manager
@@ -354,5 +354,5 @@ Future<void> init() async {
       ));
 
   await sl<LocalStorageService>().init();
-  await sl<ChainService>().loadChains();
+  await sl<ChainRepository>().load();
 }

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/services/chain_service.dart';
+import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../history/presentation/bloc/history_bloc.dart';
@@ -44,11 +44,10 @@ class _TokenListPageState extends State<TokenListPage>
   }
 
   void _loadTokens() {
-    final chainService = sl<ChainService>();
-    // Use testnet networks in debug mode for testing
+    final chainRepository = sl<ChainRepository>();
     final networks = kDebugMode
-        ? chainService.evmAllNetworks
-        : chainService.evmMainnetNetworks;
+        ? chainRepository.allNetworks
+        : chainRepository.mainnetNetworks;
     context.read<TokenBloc>().add(AllTokensRequested(
           walletAddress: widget.walletAddress,
           networks: networks,

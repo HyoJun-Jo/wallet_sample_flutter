@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 
-/// Chain configuration model
 class Chain extends Equatable {
   final String name;
   final String coin;
@@ -10,7 +9,7 @@ class Chain extends Equatable {
   final int decimals;
   final String coingeckoId;
   final String icon;
-  final String type; // mainnet/testnet
+  final String type;
   final String rpcUrl;
   final String explorerUrl;
   final String explorerDetailUrl;
@@ -47,39 +46,9 @@ class Chain extends Equatable {
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'name': name,
-      'coin': coin,
-      'symbol': symbol,
-      'chainId': chainId,
-      'network': network,
-      'decimals': decimals,
-      'coingecko_id': coingeckoId,
-      'icon': icon,
-      'type': type,
-      'rpc_url': rpcUrl,
-      'explorer_url': explorerUrl,
-      'explorer_detail_url': explorerDetailUrl,
-    };
-  }
-
   bool get isMainnet => type == 'mainnet';
   bool get isTestnet => type == 'testnet';
 
   @override
-  List<Object?> get props => [
-        name,
-        coin,
-        symbol,
-        chainId,
-        network,
-        decimals,
-        coingeckoId,
-        icon,
-        type,
-        rpcUrl,
-        explorerUrl,
-        explorerDetailUrl,
-      ];
+  List<Object?> get props => [chainId, network];
 }

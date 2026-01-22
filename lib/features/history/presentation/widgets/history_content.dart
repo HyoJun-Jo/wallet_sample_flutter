@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/services/chain_service.dart';
+import '../../../../core/chain/chain_repository.dart';
 import '../../../../di/injection_container.dart';
 import '../../domain/entities/transaction_history.dart';
 import '../bloc/history_bloc.dart';
@@ -31,11 +31,10 @@ class _HistoryContentState extends State<HistoryContent> {
   }
 
   void _loadHistory() {
-    final chainService = sl<ChainService>();
-    // evmAllNetworks already returns comma-separated string
+    final chainRepository = sl<ChainRepository>();
     final networks = kDebugMode
-        ? chainService.evmAllNetworks
-        : chainService.evmMainnetNetworks;
+        ? chainRepository.allNetworks
+        : chainRepository.mainnetNetworks;
 
     context.read<HistoryBloc>().add(TokenHistoryRequested(
           walletAddress: widget.walletAddress,

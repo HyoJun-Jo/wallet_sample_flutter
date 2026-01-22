@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../core/services/chain_service.dart';
+import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../signing/presentation/bloc/signing_bloc.dart';
@@ -50,8 +50,8 @@ class _TransferConfirmView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chainService = sl<ChainService>();
-    final chain = chainService.getByNetwork(transferData.network);
+    final chainRepository = sl<ChainRepository>();
+    final chain = chainRepository.getByNetwork(transferData.network);
     final isNative = token?.isNative ?? true;
 
     // Calculate values for display

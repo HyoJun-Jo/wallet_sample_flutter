@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../core/services/chain_service.dart';
+import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../token/domain/entities/token_info.dart';
@@ -30,8 +30,8 @@ class TransferCompletePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final chainService = sl<ChainService>();
-    final chain = chainService.getByNetwork(transferData.network);
+    final chainRepository = sl<ChainRepository>();
+    final chain = chainRepository.getByNetwork(transferData.network);
     final isNative = token?.isNative ?? true;
     final symbol = isNative ? (chain?.symbol ?? 'ETH') : (token?.symbol ?? 'Token');
     final decimals = chain?.decimals ?? 18;
@@ -309,8 +309,8 @@ class TransferCompletePage extends StatelessWidget {
   }
 
   String _getExplorerUrl(String txHash) {
-    final chainService = sl<ChainService>();
-    final chain = chainService.getByNetwork(transferData.network);
+    final chainRepository = sl<ChainRepository>();
+    final chain = chainRepository.getByNetwork(transferData.network);
     if (chain == null || chain.explorerDetailUrl.isEmpty) return '';
 
     // explorerDetailUrl format: "https://etherscan.io/tx/"

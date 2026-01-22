@@ -7,24 +7,23 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/wei_utils.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../core/services/chain_service.dart';
+import '../../../../core/chain/chain_repository.dart';
 import '../../domain/entities/transfer.dart';
 import '../../domain/repositories/transfer_repository.dart';
 import '../datasources/transfer_remote_datasource.dart';
 import '../models/transfer_model.dart';
 
-/// Transfer Repository implementation
 class TransferRepositoryImpl implements TransferRepository {
   final TransferRemoteDataSource _remoteDataSource;
-  final ChainService _chainService;
+  final ChainRepository _chainRepository;
   final ApiClient _apiClient;
 
   TransferRepositoryImpl({
     required TransferRemoteDataSource remoteDataSource,
-    required ChainService chainService,
+    required ChainRepository chainService,
     required ApiClient apiClient,
   })  : _remoteDataSource = remoteDataSource,
-        _chainService = chainService,
+        _chainRepository = chainService,
         _apiClient = apiClient;
 
   @override
@@ -32,7 +31,7 @@ class TransferRepositoryImpl implements TransferRepository {
     required TransferRequest request,
   }) async {
     try {
-      final chain = _chainService.getByNetwork(request.network);
+      final chain = _chainRepository.getByNetwork(request.network);
       if (chain == null) {
         return Left(ServerFailure(message: 'Unknown network: ${request.network}'));
       }
