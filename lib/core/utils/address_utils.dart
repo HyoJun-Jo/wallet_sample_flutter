@@ -3,7 +3,6 @@ class AddressUtils {
   AddressUtils._();
 
   /// Shorten address for display
-  /// e.g., "0x1234...5678abcdef" → "0x1234...cdef"
   static String shorten(String address, {int prefixLength = 6, int suffixLength = 4}) {
     if (address.length <= prefixLength + suffixLength + 3) return address;
     return '${address.substring(0, prefixLength)}...${address.substring(address.length - suffixLength)}';
@@ -27,7 +26,7 @@ class AddressUtils {
     return address == '0x0000000000000000000000000000000000000000';
   }
 
-  /// Normalize address to checksum format (lowercase for comparison)
+  /// Normalize address to lowercase
   static String normalize(String address) {
     return address.toLowerCase();
   }

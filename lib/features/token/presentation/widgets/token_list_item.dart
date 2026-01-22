@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/utils/network_utils.dart';
 import '../../domain/entities/token_info.dart';
 
 /// Token list item widget
@@ -121,18 +120,17 @@ class TokenListItem extends StatelessWidget {
   }
 
   Widget _buildNetworkBadge() {
-    final networkColor = NetworkUtils.getColor(token.network);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: networkColor.withValues(alpha: 0.1),
+        color: Colors.grey.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        NetworkUtils.getDisplayName(token.network),
-        style: TextStyle(
+        token.network.toUpperCase(),
+        style: const TextStyle(
           fontSize: 10,
-          color: networkColor,
+          color: Colors.grey,
           fontWeight: FontWeight.w500,
         ),
       ),
