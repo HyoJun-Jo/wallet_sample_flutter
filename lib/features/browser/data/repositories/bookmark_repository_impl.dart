@@ -15,8 +15,8 @@ class BookmarkRepositoryImpl implements BookmarkRepository {
   @override
   Future<Either<Failure, List<Bookmark>>> getBookmarks() async {
     try {
-      final bookmarks = await _localDataSource.getBookmarks();
-      return Right(bookmarks);
+      final models = await _localDataSource.getBookmarks();
+      return Right(models.map((m) => m.toEntity()).toList());
     } catch (e) {
       return Left(CacheFailure(message: e.toString()));
     }

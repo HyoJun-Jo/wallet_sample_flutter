@@ -1,68 +1,72 @@
 import 'package:equatable/equatable.dart';
 
-/// Browser state base class
-abstract class BrowserState extends Equatable {
-  const BrowserState();
+import '../../domain/entities/bookmark.dart';
 
-  @override
-  List<Object?> get props => [];
-}
+enum BrowserStatus { initial, loading, loaded, error }
 
-/// Initial state
-class BrowserInitial extends BrowserState {
-  const BrowserInitial();
-}
-
-/// Loading state
-class BrowserLoading extends BrowserState {
-  final String url;
-
-  const BrowserLoading({required this.url});
-
-  @override
-  List<Object?> get props => [url];
-}
-
-/// Loaded state
-class BrowserLoaded extends BrowserState {
-  final String url;
-  final String? title;
+/// Browser state
+class BrowserState extends Equatable {
+  final BrowserStatus status;
+  final String currentUrl;
+  final String? pageTitle;
+  final bool isLoading;
+  final int loadingProgress;
   final bool canGoBack;
   final bool canGoForward;
+  final List<Bookmark> bookmarks;
+  final bool isCurrentPageBookmarked;
+  final String? errorMessage;
 
-  const BrowserLoaded({
-    required this.url,
-    this.title,
+  const BrowserState({
+    this.status = BrowserStatus.initial,
+    this.currentUrl = '',
+    this.pageTitle,
+    this.isLoading = false,
+    this.loadingProgress = 0,
     this.canGoBack = false,
     this.canGoForward = false,
+    this.bookmarks = const [],
+    this.isCurrentPageBookmarked = false,
+    this.errorMessage,
   });
 
+  BrowserState copyWith({
+    BrowserStatus? status,
+    String? currentUrl,
+    String? pageTitle,
+    bool? isLoading,
+    int? loadingProgress,
+    bool? canGoBack,
+    bool? canGoForward,
+    List<Bookmark>? bookmarks,
+    bool? isCurrentPageBookmarked,
+    String? errorMessage,
+  }) {
+    return BrowserState(
+      status: status ?? this.status,
+      currentUrl: currentUrl ?? this.currentUrl,
+      pageTitle: pageTitle ?? this.pageTitle,
+      isLoading: isLoading ?? this.isLoading,
+      loadingProgress: loadingProgress ?? this.loadingProgress,
+      canGoBack: canGoBack ?? this.canGoBack,
+      canGoForward: canGoForward ?? this.canGoForward,
+      bookmarks: bookmarks ?? this.bookmarks,
+      isCurrentPageBookmarked: isCurrentPageBookmarked ?? this.isCurrentPageBookmarked,
+      errorMessage: errorMessage ?? this.errorMessage,
+    );
+  }
+
   @override
-  List<Object?> get props => [url, title, canGoBack, canGoForward];
-}
-
-/// Web3 request pending
-class BrowserWeb3RequestPending extends BrowserState {
-  final String method;
-  final Map<String, dynamic>? params;
-  final BrowserLoaded previousState;
-
-  const BrowserWeb3RequestPending({
-    required this.method,
-    this.params,
-    required this.previousState,
-  });
-
-  @override
-  List<Object?> get props => [method, params, previousState];
-}
-
-/// Error state
-class BrowserError extends BrowserState {
-  final String message;
-
-  const BrowserError({required this.message});
-
-  @override
-  List<Object?> get props => [message];
+  List<Object?> get props => [
+        status,
+        currentUrl,
+        pageTitle,
+        isLoading,
+        loadingProgress,
+        canGoBack,
+        canGoForward,
+        bookmarks,
+        isCurrentPageBookmarked,
+        errorMessage,
+      ];
 }

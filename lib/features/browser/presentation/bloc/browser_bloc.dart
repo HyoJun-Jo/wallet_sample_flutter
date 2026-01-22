@@ -1,35 +1,56 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../core/usecases/usecase.dart';
+import '../../domain/usecases/add_bookmark_usecase.dart';
+import '../../domain/usecases/get_bookmarks_usecase.dart';
+import '../../domain/usecases/is_bookmarked_usecase.dart';
+import '../../domain/usecases/remove_bookmark_usecase.dart';
 import 'browser_event.dart';
 import 'browser_state.dart';
 
 /// Browser BLoC
 class BrowserBloc extends Bloc<BrowserEvent, BrowserState> {
-  BrowserBloc() : super(const BrowserInitial()) {
-    on<BrowserLoadUrl>(_onLoadUrl);
+  final GetBookmarksUseCase _getBookmarksUseCase;
+  final AddBookmarkUseCase _addBookmarkUseCase;
+  final RemoveBookmarkUseCase _removeBookmarkUseCase;
+  final IsBookmarkedUseCase _isBookmarkedUseCase;
+
+  BrowserBloc({
+    required GetBookmarksUseCase getBookmarksUseCase,
+    required AddBookmarkUseCase addBookmarkUseCase,
+    required RemoveBookmarkUseCase removeBookmarkUseCase,
+    required IsBookmarkedUseCase isBookmarkedUseCase,
+  })  : _getBookmarksUseCase = getBookmarksUseCase,
+        _addBookmarkUseCase = addBookmarkUseCase,
+        _removeBookmarkUseCase = removeBookmarkUseCase,
+        _isBookmarkedUseCase = isBookmarkedUseCase,
+        super(const BrowserState()) {
+    on<BrowserUrlLoaded>(_onUrlLoaded);
     on<BrowserLoadingStarted>(_onLoadingStarted);
-    on<BrowserLoadingFinished>(_onLoadingFinished);
-    on<BrowserGoBack>(_onGoBack);
-    on<BrowserGoForward>(_onGoForward);
-    on<BrowserRefresh>(_onRefresh);
-    on<BrowserWeb3Request>(_onWeb3Request);
+    on<BrowserPageLoaded>(_onPageLoaded);
+    on<BrowserProgressChanged>(_onProgressChanged);
+    on<BookmarksLoadRequested>(_onBookmarksLoadRequested);
+    on<BookmarkAddRequested>(_onBookmarkAddRequested);
+    on<BookmarkRemoveRequested>(_onBookmarkRemoveRequested);
+    on<BookmarkCheckRequested>(_onBookmarkCheckRequested);
   }
 
-  void _onLoadUrl(
-    BrowserLoadUrl event,
+  void _onUrlLoaded(
+    BrowserUrlLoaded event,
     Emitter<BrowserState> emit,
   ) {
     if (event.url.isEmpty) {
-      emit(const BrowserInitial());
+      emit(state.copyWith(
+        status: BrowserStatus.initial,
+        currentUrl: '',
+        pageTitle: null,
+      ));
       return;
     }
-    // Directly emit BrowserLoaded since we're using placeholder WebView
-    // In production with real WebView, this should emit BrowserLoading
-    // and WebView's onPageFinished callback should emit BrowserLoaded
-    emit(BrowserLoaded(
-      url: event.url,
-      title: null,
-      canGoBack: true,
-      canGoForward: false,
+
+    emit(state.copyWith(
+      currentUrl: event.url,
+      isLoading: true,
     ));
   }
 
@@ -37,59 +58,109 @@ class BrowserBloc extends Bloc<BrowserEvent, BrowserState> {
     BrowserLoadingStarted event,
     Emitter<BrowserState> emit,
   ) {
-    final currentState = state;
-    if (currentState is BrowserLoaded) {
-      emit(BrowserLoading(url: currentState.url));
-    }
-  }
-
-  void _onLoadingFinished(
-    BrowserLoadingFinished event,
-    Emitter<BrowserState> emit,
-  ) {
-    emit(BrowserLoaded(
-      url: event.url,
-      title: event.title,
-      canGoBack: true,
-      canGoForward: false,
+    emit(state.copyWith(
+      isLoading: true,
+      loadingProgress: 0,
     ));
   }
 
-  void _onGoBack(
-    BrowserGoBack event,
+  Future<void> _onPageLoaded(
+    BrowserPageLoaded event,
     Emitter<BrowserState> emit,
-  ) {
-    // Navigation is handled by WebViewController
-    // This event is for state tracking if needed
+  ) async {
+    emit(state.copyWith(
+      status: BrowserStatus.loaded,
+      currentUrl: event.url,
+      pageTitle: event.title,
+      isLoading: false,
+      loadingProgress: 100,
+      canGoBack: event.canGoBack,
+      canGoForward: event.canGoForward,
+    ));
+
+    // Check if current page is bookmarked
+    add(BookmarkCheckRequested(url: event.url));
   }
 
-  void _onGoForward(
-    BrowserGoForward event,
+  void _onProgressChanged(
+    BrowserProgressChanged event,
     Emitter<BrowserState> emit,
   ) {
-    // Navigation is handled by WebViewController
-    // This event is for state tracking if needed
+    emit(state.copyWith(
+      loadingProgress: event.progress,
+      isLoading: event.progress < 100,
+    ));
   }
 
-  void _onRefresh(
-    BrowserRefresh event,
+  Future<void> _onBookmarksLoadRequested(
+    BookmarksLoadRequested event,
     Emitter<BrowserState> emit,
-  ) {
-    // Refresh is handled by WebViewController
-    // This event is for state tracking if needed
+  ) async {
+    final result = await _getBookmarksUseCase(NoParams());
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        errorMessage: failure.message,
+      )),
+      (bookmarks) => emit(state.copyWith(
+        bookmarks: bookmarks,
+      )),
+    );
   }
 
-  void _onWeb3Request(
-    BrowserWeb3Request event,
+  Future<void> _onBookmarkAddRequested(
+    BookmarkAddRequested event,
     Emitter<BrowserState> emit,
-  ) {
-    final currentState = state;
-    if (currentState is BrowserLoaded) {
-      emit(BrowserWeb3RequestPending(
-        method: event.method,
-        params: event.params,
-        previousState: currentState,
-      ));
-    }
+  ) async {
+    final result = await _addBookmarkUseCase(
+      AddBookmarkParams(title: event.title, url: event.url),
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        errorMessage: failure.message,
+      )),
+      (_) {
+        emit(state.copyWith(isCurrentPageBookmarked: true));
+        add(const BookmarksLoadRequested());
+      },
+    );
+  }
+
+  Future<void> _onBookmarkRemoveRequested(
+    BookmarkRemoveRequested event,
+    Emitter<BrowserState> emit,
+  ) async {
+    final result = await _removeBookmarkUseCase(
+      RemoveBookmarkParams(url: event.url),
+    );
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        errorMessage: failure.message,
+      )),
+      (_) {
+        if (event.url == state.currentUrl) {
+          emit(state.copyWith(isCurrentPageBookmarked: false));
+        }
+        add(const BookmarksLoadRequested());
+      },
+    );
+  }
+
+  Future<void> _onBookmarkCheckRequested(
+    BookmarkCheckRequested event,
+    Emitter<BrowserState> emit,
+  ) async {
+    final result = await _isBookmarkedUseCase(
+      IsBookmarkedParams(url: event.url),
+    );
+
+    result.fold(
+      (failure) => null,
+      (isBookmarked) => emit(state.copyWith(
+        isCurrentPageBookmarked: isBookmarked,
+      )),
+    );
   }
 }

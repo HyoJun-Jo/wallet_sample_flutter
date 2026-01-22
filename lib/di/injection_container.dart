@@ -340,7 +340,12 @@ Future<void> init() async {
   sl.registerLazySingleton(() => IsBookmarkedUseCase(sl()));
 
   // BLoC
-  sl.registerFactory(() => BrowserBloc());
+  sl.registerFactory(() => BrowserBloc(
+        getBookmarksUseCase: sl(),
+        addBookmarkUseCase: sl(),
+        removeBookmarkUseCase: sl(),
+        isBookmarkedUseCase: sl(),
+      ));
 
   // DataSources
   sl.registerLazySingleton<HistoryRemoteDataSource>(

@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_web3_webview/flutter_web3_webview.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:share_plus/share_plus.dart';
@@ -9,7 +10,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/web3_constants.dart';
 import '../../../../core/enums/abc_network.dart';
-import '../../../../core/usecases/usecase.dart';
 import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../signing/domain/entities/sign_request.dart';
@@ -20,11 +20,9 @@ import '../../../signing/domain/usecases/get_nonce_usecase.dart';
 import '../../../signing/domain/usecases/estimate_gas_usecase.dart';
 import '../../../signing/domain/usecases/get_suggested_gas_fees_usecase.dart';
 import '../../../signing/domain/usecases/send_signed_transaction_usecase.dart';
-import '../../domain/entities/bookmark.dart';
-import '../../domain/usecases/add_bookmark_usecase.dart';
-import '../../domain/usecases/get_bookmarks_usecase.dart';
-import '../../domain/usecases/remove_bookmark_usecase.dart';
-import '../../domain/usecases/is_bookmarked_usecase.dart';
+import '../bloc/browser_bloc.dart';
+import '../bloc/browser_event.dart';
+import '../bloc/browser_state.dart';
 import '../widgets/sign_request_sheet.dart';
 import '../widgets/transaction_request_sheet.dart';
 
@@ -55,11 +53,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   final _urlController = TextEditingController();
   final _focusNode = FocusNode();
 
-  // UseCases
-  final AddBookmarkUseCase _addBookmarkUseCase = sl<AddBookmarkUseCase>();
-  final RemoveBookmarkUseCase _removeBookmarkUseCase = sl<RemoveBookmarkUseCase>();
-  final IsBookmarkedUseCase _isBookmarkedUseCase = sl<IsBookmarkedUseCase>();
-  final GetBookmarksUseCase _getBookmarksUseCase = sl<GetBookmarksUseCase>();
+  // Signing UseCases (required for Web3 callbacks)
   final SignEip1559UseCase _signEip1559UseCase = sl<SignEip1559UseCase>();
   final SignTypedDataUseCase _signTypedDataUseCase = sl<SignTypedDataUseCase>();
   final SignUseCase _signUseCase = sl<SignUseCase>();
@@ -67,13 +61,6 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   final EstimateGasUseCase _estimateGasUseCase = sl<EstimateGasUseCase>();
   final GetSuggestedGasFeesUseCase _getSuggestedGasFeesUseCase = sl<GetSuggestedGasFeesUseCase>();
   final SendSignedTransactionUseCase _sendSignedTransactionUseCase = sl<SendSignedTransactionUseCase>();
-
-  String _currentUrl = '';
-  String? _pageTitle;
-  bool _isLoading = false;
-  int _loadingProgress = 0;
-  bool _canGoBack = false;
-  bool _canGoForward = false;
 
   @override
   void initState() {
@@ -167,17 +154,17 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
     );
   }
 
-  String get _currentHost {
+  String _getCurrentHost(String url) {
     try {
-      final uri = Uri.parse(_currentUrl);
+      final uri = Uri.parse(url);
       return uri.host;
     } catch (_) {
-      return _currentUrl;
+      return url;
     }
   }
 
-  String get _dappName {
-    return _pageTitle ?? _currentHost;
+  String _getDappName(BrowserState state) {
+    return state.pageTitle ?? _getCurrentHost(state.currentUrl);
   }
 
   Future<List<String>> _ethAccounts() async {
@@ -194,9 +181,10 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   Future<String> _ethPersonalSign(String message) async {
     if (!mounted) throw Exception('Widget not mounted');
 
+    final state = context.read<BrowserBloc>().state;
     final approved = await SignRequestSheet.show(
       context,
-      dappName: _dappName,
+      dappName: _getDappName(state),
       network: _currentNetwork,
       message: message,
     );
@@ -229,9 +217,10 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   Future<String> _ethSignTypedData(String typedData) async {
     if (!mounted) throw Exception('Widget not mounted');
 
+    final state = context.read<BrowserBloc>().state;
     final approved = await SignRequestSheet.show(
       context,
-      dappName: _dappName,
+      dappName: _getDappName(state),
       network: _currentNetwork,
       message: typedData,
     );
@@ -259,9 +248,10 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   Future<String> _ethSendTransaction(JsTransactionObject tx) async {
     if (!mounted) throw Exception('Widget not mounted');
 
+    final state = context.read<BrowserBloc>().state;
     final approved = await TransactionRequestSheet.show(
       context,
-      dappName: _dappName,
+      dappName: _getDappName(state),
       network: _currentNetwork,
       from: tx.from ?? widget.walletAddress,
       to: tx.to ?? '',
@@ -456,42 +446,41 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   }
 
   void _onTitleChanged(InAppWebViewController controller, String? title) {
-    setState(() {
-      _pageTitle = title;
-    });
+    // Title is updated via onLoadStop with full page info
   }
 
   void _onLoadStart(InAppWebViewController controller, WebUri? url) {
-    setState(() {
-      _currentUrl = url?.toString() ?? '';
-      _urlController.text = _currentUrl;
-      _isLoading = true;
-    });
+    final urlString = url?.toString() ?? '';
+    _urlController.text = urlString;
+
+    if (mounted) {
+      context.read<BrowserBloc>().add(BrowserUrlLoaded(url: urlString));
+      context.read<BrowserBloc>().add(const BrowserLoadingStarted());
+    }
   }
 
   void _onLoadStop(InAppWebViewController controller, WebUri? url) async {
-    setState(() {
-      _currentUrl = url?.toString() ?? '';
-      _urlController.text = _currentUrl;
-      _isLoading = false;
-    });
+    final urlString = url?.toString() ?? '';
+    _urlController.text = urlString;
 
-    // Update navigation state
+    final title = await controller.getTitle();
     final canGoBack = await controller.canGoBack();
     final canGoForward = await controller.canGoForward();
+
     if (mounted) {
-      setState(() {
-        _canGoBack = canGoBack;
-        _canGoForward = canGoForward;
-      });
+      context.read<BrowserBloc>().add(BrowserPageLoaded(
+        url: urlString,
+        title: title,
+        canGoBack: canGoBack,
+        canGoForward: canGoForward,
+      ));
     }
   }
 
   void _onProgressChanged(InAppWebViewController controller, int progress) {
-    setState(() {
-      _loadingProgress = progress;
-      _isLoading = progress < 100;
-    });
+    if (mounted) {
+      context.read<BrowserBloc>().add(BrowserProgressChanged(progress: progress));
+    }
   }
 
   Future<NavigationActionPolicy?> _shouldOverrideUrlLoading(
@@ -526,10 +515,9 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
   void _goHome() {
     _urlController.clear();
-    setState(() {
-      _currentUrl = '';
-      _pageTitle = null;
-    });
+    if (mounted) {
+      context.read<BrowserBloc>().add(const BrowserUrlLoaded(url: ''));
+    }
     _webViewController?.loadUrl(
       urlRequest: URLRequest(url: WebUri('about:blank')),
     );
@@ -537,35 +525,42 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Web3 Browser'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: _buildUrlBar(),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Loading progress
-            if (_isLoading)
-              LinearProgressIndicator(
-                value: _loadingProgress / 100,
-                minHeight: 2,
+    return BlocProvider(
+      create: (_) => sl<BrowserBloc>()..add(const BookmarksLoadRequested()),
+      child: BlocBuilder<BrowserBloc, BrowserState>(
+        builder: (context, state) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Web3 Browser'),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(56),
+                child: _buildUrlBar(),
               ),
-
-            // WebView
-            Expanded(
-              child: _isInitialized ? _buildWebView() : _buildLoadingState(),
             ),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  // Loading progress
+                  if (state.isLoading)
+                    LinearProgressIndicator(
+                      value: state.loadingProgress / 100,
+                      minHeight: 2,
+                    ),
 
-            // Connected wallet info
-            _buildWalletInfo(),
-          ],
-        ),
+                  // WebView
+                  Expanded(
+                    child: _isInitialized ? _buildWebView() : _buildLoadingState(),
+                  ),
+
+                  // Connected wallet info
+                  _buildWalletInfo(),
+                ],
+              ),
+            ),
+            bottomNavigationBar: _buildBottomBar(context, state),
+          );
+        },
       ),
-      bottomNavigationBar: _buildBottomBar(),
     );
   }
 
@@ -690,18 +685,18 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
     );
   }
 
-  Widget _buildBottomBar() {
+  Widget _buildBottomBar(BuildContext context, BrowserState state) {
     return BottomAppBar(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: _canGoBack ? _goBack : null,
+            onPressed: state.canGoBack ? _goBack : null,
           ),
           IconButton(
             icon: const Icon(Icons.arrow_forward),
-            onPressed: _canGoForward ? _goForward : null,
+            onPressed: state.canGoForward ? _goForward : null,
           ),
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -713,17 +708,19 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
           ),
           IconButton(
             icon: const Icon(Icons.more_vert),
-            onPressed: _showOptionsMenu,
+            onPressed: () => _showOptionsMenu(context),
           ),
         ],
       ),
     );
   }
 
-  void _showOptionsMenu() {
+  void _showOptionsMenu(BuildContext blocContext) {
+    final state = blocContext.read<BrowserBloc>().state;
+
     showModalBottomSheet(
       context: context,
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -732,32 +729,44 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
                 leading: const Icon(Icons.share),
                 title: const Text('Share'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _shareCurrentPage();
+                  Navigator.pop(sheetContext);
+                  _shareCurrentPage(state);
                 },
               ),
               ListTile(
-                leading: const Icon(Icons.bookmark_border),
-                title: const Text('Add Bookmark'),
+                leading: Icon(
+                  state.isCurrentPageBookmarked
+                      ? Icons.bookmark
+                      : Icons.bookmark_border,
+                ),
+                title: Text(
+                  state.isCurrentPageBookmarked
+                      ? 'Remove Bookmark'
+                      : 'Add Bookmark',
+                ),
                 onTap: () {
-                  Navigator.pop(context);
-                  _addBookmark();
+                  Navigator.pop(sheetContext);
+                  if (state.isCurrentPageBookmarked) {
+                    _removeBookmark(blocContext, state.currentUrl);
+                  } else {
+                    _addBookmark(blocContext, state);
+                  }
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.bookmarks),
                 title: const Text('View Bookmarks'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _showBookmarks();
+                  Navigator.pop(sheetContext);
+                  _showBookmarks(blocContext);
                 },
               ),
               ListTile(
                 leading: const Icon(Icons.open_in_browser),
                 title: const Text('Open in External Browser'),
                 onTap: () {
-                  Navigator.pop(context);
-                  _openInExternalBrowser();
+                  Navigator.pop(sheetContext);
+                  _openInExternalBrowser(state);
                 },
               ),
             ],
@@ -773,15 +782,15 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   }
 
   /// Share current page URL
-  Future<void> _shareCurrentPage() async {
-    if (_currentUrl.isEmpty) {
+  Future<void> _shareCurrentPage(BrowserState state) async {
+    if (state.currentUrl.isEmpty) {
       _showSnackBar('No page to share');
       return;
     }
 
     try {
-      final title = _pageTitle ?? _currentHost;
-      await Share.share('$title\n$_currentUrl');
+      final title = state.pageTitle ?? _getCurrentHost(state.currentUrl);
+      await Share.share('$title\n${state.currentUrl}');
     } catch (e) {
       log('Share failed: $e', name: 'Web3Browser');
       _showSnackBar('Failed to share');
@@ -789,165 +798,138 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   }
 
   /// Add current page to bookmarks
-  Future<void> _addBookmark() async {
-    if (_currentUrl.isEmpty) {
+  void _addBookmark(BuildContext blocContext, BrowserState state) {
+    if (state.currentUrl.isEmpty) {
       _showSnackBar('No page to bookmark');
       return;
     }
 
-    final title = _pageTitle ?? _currentHost;
-
-    // Check if already bookmarked
-    final isBookmarkedResult = await _isBookmarkedUseCase(
-      IsBookmarkedParams(url: _currentUrl),
-    );
-    final alreadyBookmarked = isBookmarkedResult.fold(
-      (_) => false,
-      (isBookmarked) => isBookmarked,
-    );
-
-    if (alreadyBookmarked) {
+    if (state.isCurrentPageBookmarked) {
       _showSnackBar('Already bookmarked');
       return;
     }
 
-    final result = await _addBookmarkUseCase(
-      AddBookmarkParams(title: title, url: _currentUrl),
-    );
-
-    result.fold(
-      (failure) {
-        log('Add bookmark failed: ${failure.message}', name: 'Web3Browser');
-        _showSnackBar('Failed to add bookmark');
-      },
-      (_) => _showSnackBar('Bookmark added'),
-    );
+    final title = state.pageTitle ?? _getCurrentHost(state.currentUrl);
+    blocContext.read<BrowserBloc>().add(BookmarkAddRequested(
+      title: title,
+      url: state.currentUrl,
+    ));
+    _showSnackBar('Bookmark added');
   }
 
   /// Show bookmarks list
-  Future<void> _showBookmarks() async {
-    final result = await _getBookmarksUseCase(NoParams());
+  void _showBookmarks(BuildContext blocContext) {
+    final state = blocContext.read<BrowserBloc>().state;
+    final bookmarks = state.bookmarks;
 
-    if (!mounted) return;
+    if (bookmarks.isEmpty) {
+      _showSnackBar('No bookmarks yet');
+      return;
+    }
 
-    result.fold(
-      (failure) {
-        log('Get bookmarks failed: ${failure.message}', name: 'Web3Browser');
-        _showSnackBar('Failed to load bookmarks');
-      },
-      (bookmarks) {
-        if (bookmarks.isEmpty) {
-          _showSnackBar('No bookmarks yet');
-          return;
-        }
-        _showBookmarksSheet(bookmarks);
-      },
-    );
+    _showBookmarksSheet(blocContext, bookmarks);
   }
 
   /// Show bookmarks bottom sheet
-  void _showBookmarksSheet(List<Bookmark> bookmarks) {
+  void _showBookmarksSheet(BuildContext blocContext, List<dynamic> bookmarks) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      builder: (context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.5,
-          minChildSize: 0.3,
-          maxChildSize: 0.9,
-          expand: false,
-          builder: (context, scrollController) {
-            return Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
+      builder: (sheetContext) {
+        return BlocProvider.value(
+          value: blocContext.read<BrowserBloc>(),
+          child: BlocBuilder<BrowserBloc, BrowserState>(
+            builder: (innerContext, state) {
+              return DraggableScrollableSheet(
+                initialChildSize: 0.5,
+                minChildSize: 0.3,
+                maxChildSize: 0.9,
+                expand: false,
+                builder: (context, scrollController) {
+                  return Column(
                     children: [
-                      const Text(
-                        'Bookmarks',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'Bookmarks',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const Spacer(),
+                            IconButton(
+                              icon: const Icon(Icons.close),
+                              onPressed: () => Navigator.pop(sheetContext),
+                            ),
+                          ],
                         ),
                       ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
+                      const Divider(height: 1),
+                      Expanded(
+                        child: ListView.builder(
+                          controller: scrollController,
+                          itemCount: state.bookmarks.length,
+                          itemBuilder: (context, index) {
+                            final bookmark = state.bookmarks[index];
+
+                            return ListTile(
+                              leading: const Icon(Icons.bookmark),
+                              title: Text(
+                                bookmark.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: Text(
+                                bookmark.url,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () {
+                                  _removeBookmark(innerContext, bookmark.url);
+                                },
+                              ),
+                              onTap: () {
+                                Navigator.pop(sheetContext);
+                                _loadUrl(bookmark.url);
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: ListView.builder(
-                    controller: scrollController,
-                    itemCount: bookmarks.length,
-                    itemBuilder: (context, index) {
-                      final bookmark = bookmarks[index];
-
-                      return ListTile(
-                        leading: const Icon(Icons.bookmark),
-                        title: Text(
-                          bookmark.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        subtitle: Text(
-                          bookmark.url,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () => _removeBookmark(bookmark.url),
-                        ),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _loadUrl(bookmark.url);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
+                  );
+                },
+              );
+            },
+          ),
         );
       },
     );
   }
 
   /// Remove bookmark by URL
-  Future<void> _removeBookmark(String url) async {
-    final result = await _removeBookmarkUseCase(RemoveBookmarkParams(url: url));
-
-    result.fold(
-      (failure) {
-        log('Remove bookmark failed: ${failure.message}', name: 'Web3Browser');
-      },
-      (_) {
-        if (mounted) {
-          Navigator.pop(context);
-          _showBookmarks(); // Refresh list
-        }
-      },
-    );
+  void _removeBookmark(BuildContext blocContext, String url) {
+    blocContext.read<BrowserBloc>().add(BookmarkRemoveRequested(url: url));
   }
 
   /// Open current URL in external browser
-  Future<void> _openInExternalBrowser() async {
-    if (_currentUrl.isEmpty) {
+  Future<void> _openInExternalBrowser(BrowserState state) async {
+    if (state.currentUrl.isEmpty) {
       _showSnackBar('No page to open');
       return;
     }
 
     try {
-      final uri = Uri.parse(_currentUrl);
+      final uri = Uri.parse(state.currentUrl);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
       } else {

@@ -1,14 +1,17 @@
 import '../../domain/entities/bookmark.dart';
 
 /// Bookmark data model
-class BookmarkModel extends Bookmark {
+class BookmarkModel {
+  final String title;
+  final String url;
+  final DateTime createdAt;
+
   const BookmarkModel({
-    required super.title,
-    required super.url,
-    required super.createdAt,
+    required this.title,
+    required this.url,
+    required this.createdAt,
   });
 
-  /// Create from JSON map
   factory BookmarkModel.fromJson(Map<String, dynamic> json) {
     return BookmarkModel(
       title: json['title'] as String,
@@ -17,7 +20,6 @@ class BookmarkModel extends Bookmark {
     );
   }
 
-  /// Convert to JSON map
   Map<String, dynamic> toJson() {
     return {
       'title': title,
@@ -26,12 +28,19 @@ class BookmarkModel extends Bookmark {
     };
   }
 
-  /// Create from Entity
   factory BookmarkModel.fromEntity(Bookmark entity) {
     return BookmarkModel(
       title: entity.title,
       url: entity.url,
       createdAt: entity.createdAt,
+    );
+  }
+
+  Bookmark toEntity() {
+    return Bookmark(
+      title: title,
+      url: url,
+      createdAt: createdAt,
     );
   }
 }
