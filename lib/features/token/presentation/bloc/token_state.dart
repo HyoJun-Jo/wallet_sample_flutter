@@ -23,18 +23,20 @@ class TokenLoading extends TokenState {
 class AllTokensLoaded extends TokenState {
   final List<TokenInfo> tokens;
   final double totalValueUsd;
+  final double totalValueKrw;
   final bool isFromCache;
   final String walletAddress;
 
   const AllTokensLoaded({
     required this.tokens,
     required this.totalValueUsd,
+    required this.totalValueKrw,
     required this.walletAddress,
     this.isFromCache = false,
   });
 
   @override
-  List<Object?> get props => [tokens, totalValueUsd, isFromCache, walletAddress];
+  List<Object?> get props => [tokens, totalValueUsd, totalValueKrw, isFromCache, walletAddress];
 }
 
 /// Error state

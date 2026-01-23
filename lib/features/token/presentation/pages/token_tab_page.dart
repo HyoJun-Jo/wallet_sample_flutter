@@ -159,11 +159,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
       builder: (context, state) {
         String totalBalance = '₩0';
         if (state is AllTokensLoaded) {
-          final totalKrw = state.tokens.fold<double>(
-            0,
-            (sum, token) => sum + (token.valueKrw ?? 0),
-          );
-          totalBalance = FormatUtils.formatKrw(totalKrw);
+          totalBalance = FormatUtils.formatKrw(state.totalValueKrw);
         }
         return Text(
           totalBalance,

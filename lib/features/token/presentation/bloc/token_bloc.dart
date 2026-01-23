@@ -44,10 +44,12 @@ class TokenBloc extends Bloc<TokenEvent, TokenState> {
     result.fold(
       (failure) => emit(TokenError(message: failure.message)),
       (tokens) {
-        final total = _calculateTotalValue(tokens);
+        final totalUsd = _calculateTotalValueUsd(tokens);
+        final totalKrw = _calculateTotalValueKrw(tokens);
         emit(AllTokensLoaded(
           tokens: tokens,
-          totalValueUsd: total,
+          totalValueUsd: totalUsd,
+          totalValueKrw: totalKrw,
           walletAddress: event.walletAddress,
           isFromCache: true, // First response may be from cache
         ));
@@ -61,10 +63,12 @@ class TokenBloc extends Bloc<TokenEvent, TokenState> {
   ) {
     final currentState = state;
     if (currentState is AllTokensLoaded) {
-      final total = _calculateTotalValue(event.tokens);
+      final totalUsd = _calculateTotalValueUsd(event.tokens);
+      final totalKrw = _calculateTotalValueKrw(event.tokens);
       emit(AllTokensLoaded(
         tokens: event.tokens,
-        totalValueUsd: total,
+        totalValueUsd: totalUsd,
+        totalValueKrw: totalKrw,
         walletAddress: currentState.walletAddress,
         isFromCache: false, // This is fresh from API
       ));
@@ -84,7 +88,11 @@ class TokenBloc extends Bloc<TokenEvent, TokenState> {
     }
   }
 
-  double _calculateTotalValue(List<TokenInfo> tokens) {
+  double _calculateTotalValueUsd(List<TokenInfo> tokens) {
     return tokens.fold<double>(0, (sum, t) => sum + (t.valueUsd ?? 0));
+  }
+
+  double _calculateTotalValueKrw(List<TokenInfo> tokens) {
+    return tokens.fold<double>(0, (sum, t) => sum + (t.valueKrw ?? 0));
   }
 }
