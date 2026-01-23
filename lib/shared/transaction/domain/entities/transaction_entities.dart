@@ -89,3 +89,65 @@ class TransactionResult extends Equatable {
   @override
   List<Object?> get props => [txHash];
 }
+
+/// Sign type for transaction signing
+enum SignType { legacy, eip1559, personal }
+
+/// Sign transaction params (EIP-1559)
+class SignTransactionParams extends Equatable {
+  final String network;
+  final String from;
+  final String to;
+  final String value;
+  final String data;
+  final String nonce;
+  final String gasLimit;
+  final String maxPriorityFeePerGas;
+  final String maxFeePerGas;
+  final SignType type;
+
+  const SignTransactionParams({
+    required this.network,
+    required this.from,
+    required this.to,
+    required this.value,
+    required this.data,
+    required this.nonce,
+    required this.gasLimit,
+    required this.maxPriorityFeePerGas,
+    required this.maxFeePerGas,
+    this.type = SignType.eip1559,
+  });
+
+  @override
+  List<Object?> get props => [
+        network,
+        from,
+        to,
+        value,
+        data,
+        nonce,
+        gasLimit,
+        maxPriorityFeePerGas,
+        maxFeePerGas,
+        type,
+      ];
+}
+
+/// Signed transaction result
+class SignedTransaction extends Equatable {
+  final String signature;
+  final String? serializedTx;
+  final String? rawTx;
+  final String? txHash;
+
+  const SignedTransaction({
+    required this.signature,
+    this.serializedTx,
+    this.rawTx,
+    this.txHash,
+  });
+
+  @override
+  List<Object?> get props => [signature, serializedTx, rawTx, txHash];
+}

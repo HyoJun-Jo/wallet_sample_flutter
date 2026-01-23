@@ -29,12 +29,6 @@ abstract class SigningRemoteDataSource {
     required HashSignRequest request,
     required WalletCreateResultModel credentials,
   });
-
-  /// Sign EIP-1559 transaction
-  Future<SignResultModel> signEip1559({
-    required Eip1559SignRequest request,
-    required WalletCreateResultModel credentials,
-  });
 }
 
 /// Signing Remote DataSource implementation
@@ -245,69 +239,4 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
         return 'hash';
     }
   }
-
-  @override
-  Future<SignResultModel> signEip1559({
-    required Eip1559SignRequest request,
-    required WalletCreateResultModel credentials,
-  }) async {
-    try {
-      // Get SecureChannel and encrypt credentials
-      final channel = await _secureChannelService.getOrCreateChannel();
-      final encryptedPassword = _secureChannelService.encryptWithChannel(
-        credentials.encDevicePassword,
-        channel,
-      );
-      final encryptedPvencstr = _secureChannelService.encryptWithChannel(
-        credentials.pvencstr,
-        channel,
-      );
-      final encryptedWid = _secureChannelService.encryptWithChannel(
-        credentials.wid.toString(),
-        channel,
-      );
-
-      final response = await _apiClient.post(
-        ApiEndpoints.sign,
-        data: {
-          'network': request.network,
-          // Wallet credentials (encrypted with SecureChannel)
-          'encryptDevicePassword': encryptedPassword,
-          'pvencstr': encryptedPvencstr,
-          'uid': credentials.uid,
-          'wid': encryptedWid,
-          'sid': credentials.sid,
-          // Transaction params (camelCase to match Android)
-          'to': request.to,
-          'from': request.from,
-          'value': request.value,
-          'data': request.data,
-          'nonce': request.nonce,
-          'gasLimit': request.gasLimit,
-          'maxPriorityFeePerGas': request.maxPriorityFeePerGas,
-          'maxFeePerGas': request.maxFeePerGas,
-          'type': 'EIP1559',
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Secure-Channel': channel.channelId,
-          },
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return SignResultModel.fromJson(response.data);
-      }
-
-      throw ServerException(
-        message: 'Failed to sign EIP-1559 transaction',
-        statusCode: response.statusCode,
-      );
-    } catch (e) {
-      if (e is ServerException) rethrow;
-      throw SigningException(message: e.toString());
-    }
-  }
-
 }

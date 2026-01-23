@@ -89,24 +89,4 @@ class SigningRepositoryImpl implements SigningRepository {
       return Left(ServerFailure(message: e.toString()));
     }
   }
-
-  @override
-  Future<Either<Failure, SignResult>> signEip1559({
-    required Eip1559SignRequest request,
-  }) async {
-    try {
-      final credentials = await _getCredentials();
-      final result = await _remoteDataSource.signEip1559(
-        request: request,
-        credentials: credentials,
-      );
-      return Right(result);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
-    } on SigningException catch (e) {
-      return Left(SigningFailure(message: e.message));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
 }

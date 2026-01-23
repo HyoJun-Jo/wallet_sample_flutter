@@ -61,7 +61,6 @@ import '../features/signing/domain/repositories/signing_repository.dart';
 import '../features/signing/domain/usecases/sign_usecase.dart';
 import '../features/signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../features/signing/domain/usecases/sign_hash_usecase.dart';
-import '../features/signing/domain/usecases/sign_eip1559_usecase.dart';
 import '../features/signing/presentation/bloc/signing_bloc.dart';
 
 // Shared Transaction
@@ -300,17 +299,22 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SignUseCase(sl()));
   sl.registerLazySingleton(() => SignTypedDataUseCase(sl()));
   sl.registerLazySingleton(() => SignHashUseCase(sl()));
-  sl.registerLazySingleton(() => SignEip1559UseCase(sl()));
 
   // Shared Transaction
   // DataSource
   sl.registerLazySingleton<TransactionRemoteDataSource>(
-    () => TransactionRemoteDataSourceImpl(apiClient: sl()),
+    () => TransactionRemoteDataSourceImpl(
+      apiClient: sl(),
+      secureChannelService: sl(),
+    ),
   );
 
   // Repository
   sl.registerLazySingleton<TransactionRepository>(
-    () => TransactionRepositoryImpl(remoteDataSource: sl()),
+    () => TransactionRepositoryImpl(
+      remoteDataSource: sl(),
+      secureStorage: sl(),
+    ),
   );
 
   // BLoC
@@ -318,7 +322,6 @@ Future<void> init() async {
         signUseCase: sl(),
         signTypedDataUseCase: sl(),
         signHashUseCase: sl(),
-        signingRepository: sl(),
         transactionRepository: sl(),
       ));
 

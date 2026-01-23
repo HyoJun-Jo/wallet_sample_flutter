@@ -3,8 +3,10 @@ import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 
 import '../../../../core/constants/api_endpoints.dart';
+import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../features/wallet/data/models/wallet_model.dart';
 import '../../domain/entities/transaction_entities.dart';
 
 /// Transaction Remote DataSource interface
@@ -25,6 +27,12 @@ abstract class TransactionRemoteDataSource {
     required EstimateGasParams params,
   });
 
+  /// Sign transaction (EIP-1559)
+  Future<SignedTransaction> signTransaction({
+    required SignTransactionParams params,
+    required WalletCreateResultModel credentials,
+  });
+
   /// Send signed transaction
   Future<String> sendTransaction({
     required SendTransactionParams params,
@@ -34,9 +42,13 @@ abstract class TransactionRemoteDataSource {
 /// Transaction Remote DataSource implementation
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   final ApiClient _apiClient;
+  final SecureChannelService _secureChannelService;
 
-  TransactionRemoteDataSourceImpl({required ApiClient apiClient})
-      : _apiClient = apiClient;
+  TransactionRemoteDataSourceImpl({
+    required ApiClient apiClient,
+    required SecureChannelService secureChannelService,
+  })  : _apiClient = apiClient,
+        _secureChannelService = secureChannelService;
 
   @override
   Future<String> getNonce({
@@ -183,6 +195,87 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       // Default: 21000 for native, 90000 for contract calls
       final hasData = params.data != null && params.data != '0x';
       return hasData ? '0x15f90' : '0x5208';
+    }
+  }
+
+  @override
+  Future<SignedTransaction> signTransaction({
+    required SignTransactionParams params,
+    required WalletCreateResultModel credentials,
+  }) async {
+    try {
+      // Get SecureChannel and encrypt credentials
+      final channel = await _secureChannelService.getOrCreateChannel();
+      final encryptedPassword = _secureChannelService.encryptWithChannel(
+        credentials.encDevicePassword,
+        channel,
+      );
+      final encryptedPvencstr = _secureChannelService.encryptWithChannel(
+        credentials.pvencstr,
+        channel,
+      );
+      final encryptedWid = _secureChannelService.encryptWithChannel(
+        credentials.wid.toString(),
+        channel,
+      );
+
+      final response = await _apiClient.post(
+        ApiEndpoints.sign,
+        data: {
+          'network': params.network,
+          // Wallet credentials (encrypted with SecureChannel)
+          'encryptDevicePassword': encryptedPassword,
+          'pvencstr': encryptedPvencstr,
+          'uid': credentials.uid,
+          'wid': encryptedWid,
+          'sid': credentials.sid,
+          // Transaction params
+          'to': params.to,
+          'from': params.from,
+          'value': params.value,
+          'data': params.data,
+          'nonce': params.nonce,
+          'gasLimit': params.gasLimit,
+          'maxPriorityFeePerGas': params.maxPriorityFeePerGas,
+          'maxFeePerGas': params.maxFeePerGas,
+          'type': _signTypeToString(params.type),
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'Secure-Channel': channel.channelId,
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = response.data;
+        return SignedTransaction(
+          signature: data['signature']?.toString() ?? '',
+          serializedTx: data['serializedTx']?.toString(),
+          rawTx: data['rawTx']?.toString(),
+          txHash: data['txHash']?.toString(),
+        );
+      }
+
+      throw ServerException(
+        message: 'Failed to sign transaction',
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw ServerException(message: e.toString());
+    }
+  }
+
+  String _signTypeToString(SignType type) {
+    switch (type) {
+      case SignType.legacy:
+        return 'LEGACY';
+      case SignType.eip1559:
+        return 'EIP1559';
+      case SignType.personal:
+        return 'PERSONAL';
     }
   }
 

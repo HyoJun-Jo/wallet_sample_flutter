@@ -2,7 +2,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/sign_request.dart';
-import '../../domain/repositories/signing_repository.dart';
 import '../../domain/usecases/sign_usecase.dart';
 import '../../domain/usecases/sign_typed_data_usecase.dart';
 import '../../domain/usecases/sign_hash_usecase.dart';
@@ -14,19 +13,16 @@ class SigningBloc extends Bloc<SigningEvent, SigningState> {
   final SignUseCase _signUseCase;
   final SignTypedDataUseCase _signTypedDataUseCase;
   final SignHashUseCase _signHashUseCase;
-  final SigningRepository _signingRepository;
   final TransactionRepository _transactionRepository;
 
   SigningBloc({
     required SignUseCase signUseCase,
     required SignTypedDataUseCase signTypedDataUseCase,
     required SignHashUseCase signHashUseCase,
-    required SigningRepository signingRepository,
     required TransactionRepository transactionRepository,
   })  : _signUseCase = signUseCase,
         _signTypedDataUseCase = signTypedDataUseCase,
         _signHashUseCase = signHashUseCase,
-        _signingRepository = signingRepository,
         _transactionRepository = transactionRepository,
         super(const SigningInitial()) {
     on<SignMessageRequested>(_onSignMessageRequested);
@@ -105,9 +101,8 @@ class SigningBloc extends Bloc<SigningEvent, SigningState> {
   ) async {
     emit(const SigningLoading());
 
-    final result = await _signingRepository.signEip1559(
-      request: Eip1559SignRequest(
-        accountId: event.accountId,
+    final result = await _transactionRepository.signTransaction(
+      params: SignTransactionParams(
         network: event.network,
         from: event.from,
         to: event.to,
@@ -117,12 +112,17 @@ class SigningBloc extends Bloc<SigningEvent, SigningState> {
         gasLimit: event.gasLimit,
         maxPriorityFeePerGas: event.maxPriorityFeePerGas,
         maxFeePerGas: event.maxFeePerGas,
+        type: SignType.eip1559,
       ),
     );
 
     result.fold(
       (failure) => emit(SigningError(message: failure.message)),
-      (signResult) => emit(SigningCompleted(result: signResult)),
+      (signedTx) => emit(TransactionSigned(
+        signature: signedTx.signature,
+        serializedTx: signedTx.serializedTx,
+        rawTx: signedTx.rawTx,
+      )),
     );
   }
 

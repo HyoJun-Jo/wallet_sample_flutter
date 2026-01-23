@@ -20,6 +20,11 @@ abstract class TransactionRepository {
     required EstimateGasParams params,
   });
 
+  /// Sign transaction (EIP-1559)
+  Future<Either<Failure, SignedTransaction>> signTransaction({
+    required SignTransactionParams params,
+  });
+
   /// Send signed transaction
   Future<Either<Failure, TransactionResult>> sendTransaction({
     required SendTransactionParams params,

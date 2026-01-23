@@ -15,7 +15,6 @@ import '../../../../di/injection_container.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../../signing/domain/entities/sign_request.dart';
-import '../../../signing/domain/usecases/sign_eip1559_usecase.dart';
 import '../../../signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../../../signing/domain/usecases/sign_usecase.dart';
 import '../bloc/browser_bloc.dart';
@@ -52,11 +51,10 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   final _focusNode = FocusNode();
 
   // Signing UseCases (required for Web3 callbacks)
-  final SignEip1559UseCase _signEip1559UseCase = sl<SignEip1559UseCase>();
   final SignTypedDataUseCase _signTypedDataUseCase = sl<SignTypedDataUseCase>();
   final SignUseCase _signUseCase = sl<SignUseCase>();
 
-  // Transaction Repository (for nonce, gas, send)
+  // Transaction Repository (for nonce, gas, signTransaction, sendTransaction)
   final TransactionRepository _transactionRepository = sl<TransactionRepository>();
 
   @override
@@ -327,20 +325,18 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
     final maxPriorityFeeWei = gasFees.medium.maxPriorityFeePerGas;
     final maxFeeWei = gasFees.medium.maxFeePerGas;
 
-    final signResult = await _signEip1559UseCase(
-      SignEip1559Params(
-        request: Eip1559SignRequest(
-          accountId: from,
-          network: network,
-          from: from,
-          to: to,
-          value: value,
-          data: data,
-          nonce: nonce,
-          gasLimit: gasLimit,
-          maxPriorityFeePerGas: maxPriorityFeeWei,
-          maxFeePerGas: maxFeeWei,
-        ),
+    final signResult = await _transactionRepository.signTransaction(
+      params: SignTransactionParams(
+        network: network,
+        from: from,
+        to: to,
+        value: value,
+        data: data,
+        nonce: nonce,
+        gasLimit: gasLimit,
+        maxPriorityFeePerGas: maxPriorityFeeWei,
+        maxFeePerGas: maxFeeWei,
+        type: SignType.eip1559,
       ),
     );
 

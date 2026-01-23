@@ -18,9 +18,4 @@ abstract class SigningRepository {
   Future<Either<Failure, SignResult>> signHash({
     required HashSignRequest request,
   });
-
-  /// Sign EIP-1559 transaction
-  Future<Either<Failure, SignResult>> signEip1559({
-    required Eip1559SignRequest request,
-  });
 }

@@ -39,6 +39,22 @@ class SigningError extends SigningState {
   List<Object?> get props => [message];
 }
 
+/// Transaction signed successfully
+class TransactionSigned extends SigningState {
+  final String signature;
+  final String? serializedTx;
+  final String? rawTx;
+
+  const TransactionSigned({
+    required this.signature,
+    this.serializedTx,
+    this.rawTx,
+  });
+
+  @override
+  List<Object?> get props => [signature, serializedTx, rawTx];
+}
+
 /// Transaction sent successfully
 class TransactionSent extends SigningState {
   final String txHash;
