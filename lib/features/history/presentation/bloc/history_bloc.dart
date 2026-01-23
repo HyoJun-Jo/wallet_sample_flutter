@@ -1,12 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../domain/entities/transaction_history.dart';
 import '../../domain/usecases/get_nft_transactions_usecase.dart';
 import '../../domain/usecases/get_token_transactions_usecase.dart';
 import 'history_event.dart';
 import 'history_state.dart';
 
-/// History BLoC
 class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   final GetTokenTransactionsUseCase _getTokenTransactionsUseCase;
   final GetNftTransactionsUseCase _getNftTransactionsUseCase;
@@ -28,82 +26,59 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   ) async {
     emit(const HistoryLoading());
 
-    // If filtering by specific token (from detail page), use cache only
-    final cacheOnly = event.filterNetwork != null;
+    if (event.refreshFromNetwork) {
+      // Cache-first with background refresh
+      final result = await _getTokenTransactionsUseCase(
+        walletAddress: event.walletAddress,
+        networks: event.networks,
+        filterNetwork: event.filterNetwork,
+        contractAddress: event.contractAddress,
+        cacheOnly: false,
+        onRefresh: (transactions) {
+          add(HistoryRefreshed(transactions: transactions, isTokenHistory: true));
+        },
+      );
 
-    final result = await _getTokenTransactionsUseCase(
-      walletAddress: event.walletAddress,
-      networks: event.networks,
-      cacheOnly: cacheOnly,
-      onRefresh: cacheOnly
-          ? null
-          : (transactions) {
-              final filtered = _filterTransactions(
-                transactions,
-                event.filterNetwork,
-                event.contractAddress,
-                event.isNativeCoin,
-              );
-              add(HistoryRefreshed(transactions: filtered, isTokenHistory: true));
-            },
-    );
-
-    result.fold(
-      (failure) => emit(HistoryError(message: failure.message)),
-      (transactions) {
-        final filtered = _filterTransactions(
-          transactions,
-          event.filterNetwork,
-          event.contractAddress,
-          event.isNativeCoin,
-        );
-        emit(TokenHistoryLoaded(
-          transactions: filtered,
+      result.fold(
+        (failure) => emit(HistoryError(message: failure.message)),
+        (transactions) => emit(TokenHistoryLoaded(
+          transactions: transactions,
           walletAddress: event.walletAddress,
-          isFromCache: !cacheOnly, // Only show updating indicator if not cache-only
-        ));
-      },
-    );
-  }
+          isFromCache: true,
+        )),
+      );
+    } else {
+      // Cache only
+      final result = await _getTokenTransactionsUseCase(
+        walletAddress: event.walletAddress,
+        networks: event.networks,
+        filterNetwork: event.filterNetwork,
+        contractAddress: event.contractAddress,
+        cacheOnly: true,
+      );
 
-  /// Filter transactions by network, contract address, or native coin type
-  List<TransactionHistory> _filterTransactions(
-    List<TransactionHistory> transactions,
-    String? filterNetwork,
-    String? contractAddress,
-    bool? isNativeCoin,
-  ) {
-    var filtered = transactions;
-
-    // Step 1: Filter by network first
-    if (filterNetwork != null) {
-      filtered = filtered
-          .where((tx) => tx.network.toLowerCase() == filterNetwork.toLowerCase())
-          .toList();
+      result.fold(
+        (failure) => emit(HistoryError(message: failure.message)),
+        (transactions) {
+          if (transactions.isEmpty) {
+            // No cache, fetch from network
+            add(TokenHistoryRequested(
+              walletAddress: event.walletAddress,
+              networks: event.networks,
+              refreshFromNetwork: true,
+              filterNetwork: event.filterNetwork,
+              contractAddress: event.contractAddress,
+            ));
+          } else {
+            emit(TokenHistoryLoaded(
+              transactions: transactions,
+              walletAddress: event.walletAddress,
+              isFromCache: false,
+            ));
+          }
+        },
+      );
     }
-
-    // Step 2: Additional filtering by token type
-    // No additional filter needed
-    if (contractAddress == null && isNativeCoin == null) {
-      return filtered;
-    }
-
-    // Native coin filter: only coin_transfer type
-    if (isNativeCoin == true) {
-      return filtered
-          .where((tx) => tx.type == TransactionType.coinTransfer)
-          .toList();
-    }
-
-    // Contract address filter: match contractAddress
-    if (contractAddress != null) {
-      return filtered
-          .where((tx) =>
-              tx.contractAddress?.toLowerCase() == contractAddress.toLowerCase())
-          .toList();
-    }
-
-    return filtered;
   }
 
   Future<void> _onNftHistoryRequested(
@@ -112,98 +87,77 @@ class HistoryBloc extends Bloc<HistoryEvent, HistoryState> {
   ) async {
     emit(const HistoryLoading());
 
-    // If filtering by specific NFT (from detail page), use cache only
-    final cacheOnly = event.filterNetwork != null;
+    if (event.refreshFromNetwork) {
+      final result = await _getNftTransactionsUseCase(
+        walletAddress: event.walletAddress,
+        networks: event.networks,
+        filterNetwork: event.filterNetwork,
+        contractAddress: event.contractAddress,
+        tokenId: event.tokenId,
+        cacheOnly: false,
+        onRefresh: (transactions) {
+          add(HistoryRefreshed(transactions: transactions, isTokenHistory: false));
+        },
+      );
 
-    final result = await _getNftTransactionsUseCase(
-      walletAddress: event.walletAddress,
-      networks: event.networks,
-      cacheOnly: cacheOnly,
-      onRefresh: cacheOnly
-          ? null
-          : (transactions) {
-              final filtered = _filterNftTransactions(
-                transactions,
-                event.filterNetwork,
-                event.contractAddress,
-                event.tokenId,
-              );
-              add(HistoryRefreshed(transactions: filtered, isTokenHistory: false));
-            },
-    );
-
-    result.fold(
-      (failure) => emit(HistoryError(message: failure.message)),
-      (transactions) {
-        final filtered = _filterNftTransactions(
-          transactions,
-          event.filterNetwork,
-          event.contractAddress,
-          event.tokenId,
-        );
-        emit(NftHistoryLoaded(
-          transactions: filtered,
+      result.fold(
+        (failure) => emit(HistoryError(message: failure.message)),
+        (transactions) => emit(NftHistoryLoaded(
+          transactions: transactions,
           walletAddress: event.walletAddress,
-          isFromCache: !cacheOnly,
-        ));
-      },
-    );
-  }
+          isFromCache: true,
+        )),
+      );
+    } else {
+      final result = await _getNftTransactionsUseCase(
+        walletAddress: event.walletAddress,
+        networks: event.networks,
+        filterNetwork: event.filterNetwork,
+        contractAddress: event.contractAddress,
+        tokenId: event.tokenId,
+        cacheOnly: true,
+      );
 
-  /// Filter NFT transactions by network, contract address, and token ID
-  List<TransactionHistory> _filterNftTransactions(
-    List<TransactionHistory> transactions,
-    String? filterNetwork,
-    String? contractAddress,
-    String? tokenId,
-  ) {
-    var filtered = transactions;
-
-    // Step 1: Filter by network
-    if (filterNetwork != null) {
-      filtered = filtered
-          .where((tx) => tx.network.toLowerCase() == filterNetwork.toLowerCase())
-          .toList();
+      result.fold(
+        (failure) => emit(HistoryError(message: failure.message)),
+        (transactions) {
+          if (transactions.isEmpty) {
+            add(NftHistoryRequested(
+              walletAddress: event.walletAddress,
+              networks: event.networks,
+              refreshFromNetwork: true,
+              filterNetwork: event.filterNetwork,
+              contractAddress: event.contractAddress,
+              tokenId: event.tokenId,
+            ));
+          } else {
+            emit(NftHistoryLoaded(
+              transactions: transactions,
+              walletAddress: event.walletAddress,
+              isFromCache: false,
+            ));
+          }
+        },
+      );
     }
-
-    // Step 2: Filter by contract address
-    if (contractAddress != null) {
-      filtered = filtered
-          .where((tx) =>
-              tx.contractAddress?.toLowerCase() == contractAddress.toLowerCase())
-          .toList();
-    }
-
-    // Step 3: Filter by token ID
-    if (tokenId != null) {
-      filtered = filtered
-          .where((tx) => tx.tokenId == tokenId)
-          .toList();
-    }
-
-    return filtered;
   }
 
   void _onHistoryRefreshed(
     HistoryRefreshed event,
     Emitter<HistoryState> emit,
   ) {
-    if (event.isTokenHistory) {
-      final currentState = state;
-      if (currentState is TokenHistoryLoaded) {
-        emit(currentState.copyWith(
-          transactions: event.transactions,
-          isFromCache: false,
-        ));
-      }
-    } else {
-      final currentState = state;
-      if (currentState is NftHistoryLoaded) {
-        emit(currentState.copyWith(
-          transactions: event.transactions,
-          isFromCache: false,
-        ));
-      }
+    final currentState = state;
+
+    if (event.isTokenHistory && currentState is TokenHistoryLoaded) {
+      emit(currentState.copyWith(
+        transactions: event.transactions,
+        isFromCache: false,
+      ));
+    } else if (!event.isTokenHistory && currentState is NftHistoryLoaded) {
+      emit(currentState.copyWith(
+        transactions: event.transactions,
+        isFromCache: false,
+      ));
     }
   }
 }

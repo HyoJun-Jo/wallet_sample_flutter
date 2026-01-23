@@ -2,7 +2,6 @@ import 'package:equatable/equatable.dart';
 
 import '../../domain/entities/transaction_history.dart';
 
-/// History states
 abstract class HistoryState extends Equatable {
   const HistoryState();
 
@@ -10,17 +9,14 @@ abstract class HistoryState extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Initial state
 class HistoryInitial extends HistoryState {
   const HistoryInitial();
 }
 
-/// Loading state
 class HistoryLoading extends HistoryState {
   const HistoryLoading();
 }
 
-/// Token history loaded
 class TokenHistoryLoaded extends HistoryState {
   final List<TransactionHistory> transactions;
   final String walletAddress;
@@ -48,7 +44,6 @@ class TokenHistoryLoaded extends HistoryState {
   }
 }
 
-/// NFT history loaded
 class NftHistoryLoaded extends HistoryState {
   final List<TransactionHistory> transactions;
   final String walletAddress;
@@ -76,7 +71,6 @@ class NftHistoryLoaded extends HistoryState {
   }
 }
 
-/// Error state
 class HistoryError extends HistoryState {
   final String message;
 

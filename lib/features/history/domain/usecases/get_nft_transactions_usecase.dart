@@ -4,7 +4,6 @@ import '../../../../core/errors/failures.dart';
 import '../entities/transaction_history.dart';
 import '../repositories/history_repository.dart';
 
-/// Use case for getting NFT transactions
 class GetNftTransactionsUseCase {
   final HistoryRepository _repository;
 
@@ -13,14 +12,59 @@ class GetNftTransactionsUseCase {
   Future<Either<Failure, List<TransactionHistory>>> call({
     required String walletAddress,
     required String networks,
-    OnHistoryRefreshed? onRefresh,
+    String? filterNetwork,
+    String? contractAddress,
+    String? tokenId,
     bool cacheOnly = false,
-  }) {
-    return _repository.getNftTransactions(
+    OnHistoryRefreshed? onRefresh,
+  }) async {
+    final result = await _repository.getNftTransactions(
       walletAddress: walletAddress,
       networks: networks,
-      onRefresh: onRefresh,
       cacheOnly: cacheOnly,
+      onRefresh: onRefresh != null
+          ? (transactions) => onRefresh(_applyFilters(
+                transactions,
+                filterNetwork,
+                contractAddress,
+                tokenId,
+              ))
+          : null,
     );
+
+    return result.map((transactions) => _applyFilters(
+          transactions,
+          filterNetwork,
+          contractAddress,
+          tokenId,
+        ));
+  }
+
+  List<TransactionHistory> _applyFilters(
+    List<TransactionHistory> transactions,
+    String? filterNetwork,
+    String? contractAddress,
+    String? tokenId,
+  ) {
+    var filtered = transactions;
+
+    if (filterNetwork != null) {
+      filtered = filtered
+          .where((tx) => tx.network.toLowerCase() == filterNetwork.toLowerCase())
+          .toList();
+    }
+
+    if (contractAddress != null) {
+      filtered = filtered
+          .where((tx) =>
+              tx.contractAddress?.toLowerCase() == contractAddress.toLowerCase())
+          .toList();
+    }
+
+    if (tokenId != null) {
+      filtered = filtered.where((tx) => tx.tokenId == tokenId).toList();
+    }
+
+    return filtered;
   }
 }

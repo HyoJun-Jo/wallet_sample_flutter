@@ -6,14 +6,15 @@ import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../history/presentation/bloc/history_bloc.dart';
-import '../../../history/presentation/widgets/history_content.dart';
+import '../../../history/presentation/bloc/history_event.dart';
+import '../../../history/presentation/bloc/history_state.dart';
+import '../../../history/presentation/widgets/history_list.dart';
 import '../../domain/entities/token_info.dart';
 import '../bloc/token_bloc.dart';
 import '../bloc/token_event.dart';
 import '../bloc/token_state.dart';
 import '../widgets/token_list_item.dart';
 
-/// Token list page with tabs for Tokens and History
 class TokenListPage extends StatefulWidget {
   final String walletAddress;
 
@@ -83,12 +84,10 @@ class _TokenListPageState extends State<TokenListPage>
         child: TabBarView(
           controller: _tabController,
           children: [
-            // Tokens Tab
             _buildTokensTab(),
-            // History Tab
             BlocProvider(
               create: (context) => sl<HistoryBloc>(),
-              child: HistoryContent(walletAddress: widget.walletAddress),
+              child: _HistoryTab(walletAddress: widget.walletAddress),
             ),
           ],
         ),
@@ -166,12 +165,9 @@ class _TokenListPageState extends State<TokenListPage>
       },
       child: CustomScrollView(
         slivers: [
-          // Total balance header
           SliverToBoxAdapter(
             child: _buildTotalBalance(state),
           ),
-
-          // Token list
           SliverPadding(
             padding: const EdgeInsets.all(16),
             sliver: SliverList(
@@ -286,6 +282,67 @@ class _TokenListPageState extends State<TokenListPage>
       extra: {
         'walletAddress': widget.walletAddress,
         'token': token,
+      },
+    );
+  }
+}
+
+class _HistoryTab extends StatefulWidget {
+  final String walletAddress;
+
+  const _HistoryTab({required this.walletAddress});
+
+  @override
+  State<_HistoryTab> createState() => _HistoryTabState();
+}
+
+class _HistoryTabState extends State<_HistoryTab> {
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  void _loadHistory() {
+    final chainRepository = sl<ChainRepository>();
+    final networks = kDebugMode
+        ? chainRepository.allNetworks
+        : chainRepository.mainnetNetworks;
+
+    context.read<HistoryBloc>().add(TokenHistoryRequested(
+          walletAddress: widget.walletAddress,
+          networks: networks,
+          refreshFromNetwork: true,
+        ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocConsumer<HistoryBloc, HistoryState>(
+      listener: (context, state) {
+        if (state is HistoryError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      builder: (context, state) {
+        if (state is HistoryLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (state is TokenHistoryLoaded) {
+          return HistoryList(
+            transactions: state.transactions,
+            isUpdating: state.isFromCache,
+            onRefresh: _loadHistory,
+          );
+        }
+
+        return HistoryList(
+          transactions: const [],
+          onRefresh: _loadHistory,
+        );
       },
     );
   }

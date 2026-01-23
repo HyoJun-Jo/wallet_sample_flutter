@@ -1,75 +1,31 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../core/chain/chain_repository.dart';
-import '../../../../di/injection_container.dart';
 import '../../domain/entities/transaction_history.dart';
-import '../bloc/history_bloc.dart';
-import '../bloc/history_event.dart';
-import '../bloc/history_state.dart';
-import 'transaction_list_item.dart';
+import 'history_item.dart';
 
-/// History content widget for embedding in tabs
-class HistoryContent extends StatefulWidget {
-  final String walletAddress;
+class HistoryList extends StatelessWidget {
+  final List<TransactionHistory> transactions;
+  final bool isUpdating;
+  final VoidCallback? onRefresh;
+  final void Function(TransactionHistory)? onTransactionTap;
 
-  const HistoryContent({
+  const HistoryList({
     super.key,
-    required this.walletAddress,
+    required this.transactions,
+    this.isUpdating = false,
+    this.onRefresh,
+    this.onTransactionTap,
   });
 
   @override
-  State<HistoryContent> createState() => _HistoryContentState();
-}
-
-class _HistoryContentState extends State<HistoryContent> {
-  @override
-  void initState() {
-    super.initState();
-    _loadHistory();
-  }
-
-  void _loadHistory() {
-    final chainRepository = sl<ChainRepository>();
-    final networks = kDebugMode
-        ? chainRepository.allNetworks
-        : chainRepository.mainnetNetworks;
-
-    context.read<HistoryBloc>().add(TokenHistoryRequested(
-          walletAddress: widget.walletAddress,
-          networks: networks,
-        ));
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return BlocConsumer<HistoryBloc, HistoryState>(
-      listener: (context, state) {
-        if (state is HistoryError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
-        }
-      },
-      builder: (context, state) {
-        if (state is HistoryLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (state is TokenHistoryLoaded) {
-          if (state.transactions.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildTransactionList(state.transactions, state.isFromCache);
-        }
-
-        return _buildEmptyState();
-      },
-    );
+    if (transactions.isEmpty) {
+      return _buildEmptyState(context);
+    }
+    return _buildTransactionList(context);
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -89,35 +45,33 @@ class _HistoryContentState extends State<HistoryContent> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Token transactions will appear here',
+            'Transactions will appear here',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade500,
             ),
           ),
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: _loadHistory,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Refresh'),
-          ),
+          if (onRefresh != null) ...[
+            const SizedBox(height: 24),
+            OutlinedButton.icon(
+              onPressed: onRefresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Refresh'),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildTransactionList(
-    List<TransactionHistory> transactions,
-    bool isFromCache,
-  ) {
+  Widget _buildTransactionList(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
-        _loadHistory();
+        onRefresh?.call();
       },
       child: CustomScrollView(
         slivers: [
-          // Header with updating indicator
-          if (isFromCache)
+          if (isUpdating)
             SliverToBoxAdapter(
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -159,7 +113,6 @@ class _HistoryContentState extends State<HistoryContent> {
               ),
             ),
 
-          // Transaction count
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -173,16 +126,15 @@ class _HistoryContentState extends State<HistoryContent> {
             ),
           ),
 
-          // Transaction list
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
                   final tx = transactions[index];
-                  return TransactionListItem(
+                  return HistoryItem(
                     transaction: tx,
-                    onTap: () => _onTransactionTap(tx),
+                    onTap: () => onTransactionTap?.call(tx),
                   );
                 },
                 childCount: transactions.length,
@@ -190,16 +142,11 @@ class _HistoryContentState extends State<HistoryContent> {
             ),
           ),
 
-          // Bottom padding
           const SliverToBoxAdapter(
             child: SizedBox(height: 16),
           ),
         ],
       ),
     );
-  }
-
-  void _onTransactionTap(TransactionHistory tx) {
-    // TODO: Show transaction details or open explorer
   }
 }

@@ -3,12 +3,11 @@ import 'package:intl/intl.dart';
 
 import '../../domain/entities/transaction_history.dart';
 
-/// Transaction list item widget
-class TransactionListItem extends StatelessWidget {
+class HistoryItem extends StatelessWidget {
   final TransactionHistory transaction;
   final VoidCallback? onTap;
 
-  const TransactionListItem({
+  const HistoryItem({
     super.key,
     required this.transaction,
     this.onTap,
@@ -156,11 +155,9 @@ class TransactionListItem extends StatelessWidget {
 
     String subtitle = dateStr;
 
-    // Add network info
     if (transaction.network.isNotEmpty) {
       subtitle = '${_formatNetworkName(transaction.network)} • $dateStr';
     }
-
 
     return Text(
       subtitle,
@@ -176,13 +173,11 @@ class TransactionListItem extends StatelessWidget {
   }
 
   Widget _buildTrailing(BuildContext context, bool isContractCall, bool isIncoming) {
-    // Format value based on transaction type
     String valueText;
     String prefix;
     Color textColor;
 
     if (isContractCall) {
-      // Contract call: no +/- prefix
       final decimals = transaction.tokenDecimals ?? 18;
       final formattedValue = _formatTokenAmount(transaction.value, decimals);
       final symbol = transaction.tokenSymbol ?? '';
@@ -190,7 +185,6 @@ class TransactionListItem extends StatelessWidget {
       prefix = '';
       textColor = Colors.blue.shade700;
     } else if (transaction.type == TransactionType.nftTransfer) {
-      // NFT: show collection name only if available, otherwise empty
       if (transaction.tokenName != null && transaction.tokenName!.isNotEmpty) {
         valueText = transaction.tokenName!;
         prefix = isIncoming ? '+' : '-';
