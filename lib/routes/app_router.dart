@@ -181,10 +181,14 @@ GoRouter createAppRouter(
       path: '/transfer/confirm',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
-        return TransferConfirmPage(
-          transferData: extra['transferData'] as TransferData,
-          walletAddress: extra['walletAddress'] as String,
-          token: extra['token'] as TokenInfo?,
+        return BlocProvider(
+          create: (_) => sl<TransferBloc>(),
+          child: TransferConfirmPage(
+            transferData: extra['transferData'] as TransferData,
+            transferParams: extra['transferParams'] as TransferParams,
+            walletAddress: extra['walletAddress'] as String,
+            token: extra['token'] as TokenInfo?,
+          ),
         );
       },
     ),

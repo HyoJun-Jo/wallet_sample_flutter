@@ -49,9 +49,7 @@ import '../features/token/domain/usecases/get_all_tokens_usecase.dart';
 import '../features/token/presentation/bloc/token_bloc.dart';
 
 // Transfer
-import '../features/token/data/repositories/transfer_repository_impl.dart';
-import '../features/token/domain/repositories/transfer_repository.dart';
-import '../features/token/domain/usecases/send_token_usecase.dart';
+import '../features/token/domain/usecases/transfer_token_usecase.dart';
 import '../features/token/presentation/bloc/transfer_bloc.dart';
 
 // Signing
@@ -259,23 +257,18 @@ Future<void> init() async {
         getAllTokensUseCase: sl(),
       ));
 
-  // Repository (uses TokenRemoteDataSource + TransactionRepository)
-  sl.registerLazySingleton<TransferRepository>(
-    () => TransferRepositoryImpl(
-      remoteDataSource: sl<TokenRemoteDataSource>(),
-      chainService: sl(),
-      transactionRepository: sl<TransactionRepository>(),
-    ),
-  );
-
   // UseCases
-  sl.registerLazySingleton(() => CreateTransferDataUseCase(sl()));
-  sl.registerLazySingleton(() => SendTransactionUseCase(sl()));
+  sl.registerLazySingleton(() => TransferTokenUseCase(
+        tokenRepository: sl(),
+        transactionRepository: sl(),
+        signingRepository: sl(),
+      ));
 
   // BLoC
   sl.registerFactory(() => TransferBloc(
-        createTransferDataUseCase: sl(),
-        sendTransactionUseCase: sl(),
+        transferTokenUseCase: sl(),
+        transactionRepository: sl(),
+        chainRepository: sl(),
       ));
 
   // DataSource

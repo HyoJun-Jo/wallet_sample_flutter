@@ -1,11 +1,12 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/token_info.dart';
+import '../entities/transfer.dart';
 
 /// Callback for when tokens are refreshed in background
 typedef OnTokensRefreshed = void Function(List<TokenInfo> tokens);
 
-/// Token Repository interface
+/// Token Repository interface (matches SDK TokenRepository)
 abstract class TokenRepository {
   /// Get all tokens for a wallet (cache-first strategy)
   /// Returns cached data immediately if available, then refreshes in background
@@ -25,6 +26,12 @@ abstract class TokenRepository {
     required String ownerAddress,
     required String spenderAddress,
     required String network,
+  });
+
+  /// Get transfer data (ERC-20 transfer() ABI data)
+  /// Used for ERC-20 token transfers to encode the transfer function call
+  Future<Either<Failure, TransferDataResult>> getTransferData({
+    required GetTransferDataParams params,
   });
 
   /// Clear cached tokens

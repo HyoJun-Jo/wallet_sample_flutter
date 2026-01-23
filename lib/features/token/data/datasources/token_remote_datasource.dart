@@ -1,16 +1,13 @@
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:dio/dio.dart';
-
 import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../domain/entities/transfer.dart';
 import '../models/token_info_model.dart';
-import '../models/transfer_model.dart';
 
-/// Token Remote DataSource interface
+/// Token Remote DataSource interface (matches SDK)
 abstract class TokenRemoteDataSource {
   /// Get all tokens for a wallet (EVM only, single API call)
   /// Returns native + ERC-20 tokens with prices
@@ -30,15 +27,9 @@ abstract class TokenRemoteDataSource {
     required String network,
   });
 
-  /// Get ABI data for ERC-20 token transfer
-  Future<String> getTokenTransferAbiData({
-    required TransferRequest request,
-  });
-
-  /// Send raw transaction
-  Future<TransferResultModel> sendTransaction({
-    required String network,
-    required String rawData,
+  /// Get transfer data (ERC-20 transfer() ABI data)
+  Future<TransferDataResult> getTransferData({
+    required GetTransferDataParams params,
   });
 }
 
@@ -141,63 +132,27 @@ class TokenRemoteDataSourceImpl implements TokenRemoteDataSource {
   }
 
   @override
-  Future<String> getTokenTransferAbiData({
-    required TransferRequest request,
+  Future<TransferDataResult> getTransferData({
+    required GetTransferDataParams params,
   }) async {
     try {
-      // Convert amount to hex value
-      final amountBigInt = BigInt.tryParse(request.amount) ?? BigInt.zero;
-      final hexValue = '0x${amountBigInt.toRadixString(16)}';
-
       final response = await _apiClient.get(
         ApiEndpoints.tokenTransferData,
         queryParameters: {
-          if (request.fromAddress.isNotEmpty) 'from': request.fromAddress,
-          'to': request.toAddress,
-          'value': hexValue,
-          'network': request.network,
-          'contract_address': request.contractAddress,
+          'network': params.network,
+          'to': params.to,
+          'value': params.value,
+          if (params.from != null && params.from!.isNotEmpty) 'from': params.from,
         },
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         // API returns { "result": "0x..." }
-        return response.data['result'] as String;
+        return TransferDataResult(data: response.data['result'] as String);
       }
 
       throw ServerException(
-        message: 'Failed to get transfer abi data',
-        statusCode: response.statusCode,
-      );
-    } catch (e) {
-      if (e is ServerException) rethrow;
-      throw ServerException(message: e.toString());
-    }
-  }
-
-  @override
-  Future<TransferResultModel> sendTransaction({
-    required String network,
-    required String rawData,
-  }) async {
-    try {
-      final response = await _apiClient.post(
-        ApiEndpoints.sendTransaction,
-        data: {
-          'network': network,
-          'raw_data': rawData,
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return TransferResultModel.fromJson(response.data);
-      }
-
-      throw ServerException(
-        message: 'Failed to send transaction',
+        message: 'Failed to get transfer data',
         statusCode: response.statusCode,
       );
     } catch (e) {

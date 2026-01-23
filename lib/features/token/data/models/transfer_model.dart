@@ -1,26 +1,5 @@
 import '../../domain/entities/transfer.dart';
 
-/// Transfer request model
-class TransferRequestModel extends TransferRequest {
-  const TransferRequestModel({
-    required super.fromAddress,
-    required super.toAddress,
-    required super.amount,
-    required super.contractAddress,
-    required super.network,
-  });
-
-  Map<String, dynamic> toJson() {
-    return {
-      'from': fromAddress,
-      'to': toAddress,
-      'amount': amount,
-      'contract_address': contractAddress,
-      'network': network,
-    };
-  }
-}
-
 /// Transfer data model (EIP-1559)
 class TransferDataModel extends TransferData {
   const TransferDataModel({
@@ -64,39 +43,22 @@ class TransferDataModel extends TransferData {
   }
 }
 
-/// Transfer result model
+/// Transfer result model (matches SDK - only transactionHash)
 class TransferResultModel extends TransferResult {
   const TransferResultModel({
-    required super.txHash,
-    required super.status,
+    required super.transactionHash,
   });
 
   factory TransferResultModel.fromJson(Map<String, dynamic> json) {
+    // API returns { "tx_hash": "0x..." }
     return TransferResultModel(
-      txHash: json['tx_hash'] as String,
-      status: _parseStatus(json['status'] as String?),
+      transactionHash: json['tx_hash'] as String? ?? json['transactionHash'] as String? ?? '',
     );
-  }
-
-  static TransferStatus _parseStatus(String? status) {
-    switch (status?.toLowerCase()) {
-      case 'pending':
-        return TransferStatus.pending;
-      case 'submitted':
-        return TransferStatus.submitted;
-      case 'confirmed':
-        return TransferStatus.confirmed;
-      case 'failed':
-        return TransferStatus.failed;
-      default:
-        return TransferStatus.pending;
-    }
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'tx_hash': txHash,
-      'status': status.name,
+      'transactionHash': transactionHash,
     };
   }
 }

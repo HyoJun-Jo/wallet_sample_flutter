@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../domain/entities/transfer.dart';
+
 /// Transfer event base class
 abstract class TransferEvent extends Equatable {
   const TransferEvent();
@@ -8,15 +10,15 @@ abstract class TransferEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Request to create transfer data
-class TransferDataRequested extends TransferEvent {
+/// Prepare transfer data (for confirmation UI)
+class PrepareTransfer extends TransferEvent {
   final String fromAddress;
   final String toAddress;
   final String amount;
-  final String contractAddress;
+  final String contractAddress; // Empty for native token
   final String network;
 
-  const TransferDataRequested({
+  const PrepareTransfer({
     required this.fromAddress,
     required this.toAddress,
     required this.amount,
@@ -25,30 +27,20 @@ class TransferDataRequested extends TransferEvent {
   });
 
   @override
-  List<Object?> get props => [
-        fromAddress,
-        toAddress,
-        amount,
-        contractAddress,
-        network,
-      ];
+  List<Object?> get props => [fromAddress, toAddress, amount, contractAddress, network];
 }
 
-/// Send raw transaction
-class SendTransactionRequested extends TransferEvent {
-  final String network;
-  final String rawData;
+/// Execute transfer (entire flow: sign + send)
+class TransferRequested extends TransferEvent {
+  final TransferParams params;
 
-  const SendTransactionRequested({
-    required this.network,
-    required this.rawData,
-  });
+  const TransferRequested({required this.params});
 
   @override
-  List<Object?> get props => [network, rawData];
+  List<Object?> get props => [params];
 }
 
-/// Cancel transfer
-class TransferCancelled extends TransferEvent {
-  const TransferCancelled();
+/// Reset transfer state
+class TransferReset extends TransferEvent {
+  const TransferReset();
 }

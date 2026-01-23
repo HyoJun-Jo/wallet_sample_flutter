@@ -44,7 +44,7 @@ class _SendTokenPageState extends State<SendTokenPage> {
 
   void _onSend() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<TransferBloc>().add(TransferDataRequested(
+      context.read<TransferBloc>().add(PrepareTransfer(
             fromAddress: widget.walletAddress,
             toAddress: _toAddressController.text.trim(),
             amount: _amountController.text.trim(),
@@ -65,7 +65,7 @@ class _SendTokenPageState extends State<SendTokenPage> {
           listener: (context, state) {
           if (state is TransferCompleted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Transfer completed: ${state.result.txHash}')),
+              SnackBar(content: Text('Transfer completed: ${state.result.transactionHash}')),
             );
             context.pop();
           } else if (state is TransferError) {
@@ -73,11 +73,12 @@ class _SendTokenPageState extends State<SendTokenPage> {
               SnackBar(content: Text(state.message)),
             );
           } else if (state is TransferDataReady) {
-            // Navigate to transfer confirm page
+            // Navigate to transfer confirm page with TransferParams
             context.push(
               '/transfer/confirm',
               extra: {
                 'transferData': state.transferData,
+                'transferParams': state.transferParams,
                 'walletAddress': widget.walletAddress,
                 'token': widget.token,
               },

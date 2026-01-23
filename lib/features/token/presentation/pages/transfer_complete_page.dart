@@ -141,7 +141,7 @@ class TransferCompletePage extends StatelessWidget {
                     _buildInfoCard(
                       context,
                       label: 'Transaction Hash',
-                      value: result.txHash,
+                      value: result.transactionHash,
                       icon: Icons.tag,
                       copyable: true,
                     ),
@@ -165,13 +165,13 @@ class TransferCompletePage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
 
-                    // Status
+                    // Status (always "Submitted" for new transactions)
                     _buildInfoCard(
                       context,
                       label: 'Status',
-                      value: _getStatusText(result.status),
+                      value: 'Submitted',
                       icon: Icons.info_outline,
-                      valueColor: _getStatusColor(result.status),
+                      valueColor: Colors.blue,
                     ),
                   ],
                 ),
@@ -184,7 +184,7 @@ class TransferCompletePage extends StatelessWidget {
               child: Column(
                 children: [
                   // View on Explorer button
-                  if (_getExplorerUrl(result.txHash).isNotEmpty)
+                  if (_getExplorerUrl(result.transactionHash).isNotEmpty)
                     OutlinedButton.icon(
                       onPressed: () => _openExplorer(context),
                       style: OutlinedButton.styleFrom(
@@ -318,7 +318,7 @@ class TransferCompletePage extends StatelessWidget {
   }
 
   Future<void> _openExplorer(BuildContext context) async {
-    final url = _getExplorerUrl(result.txHash);
+    final url = _getExplorerUrl(result.transactionHash);
     developer.log('[TransferComplete] Explorer URL: $url', name: 'TransferComplete');
     if (url.isEmpty) return;
 
@@ -331,32 +331,6 @@ class TransferCompletePage extends StatelessWidget {
           const SnackBar(content: Text('Could not open explorer')),
         );
       }
-    }
-  }
-
-  String _getStatusText(TransferStatus status) {
-    switch (status) {
-      case TransferStatus.pending:
-        return 'Pending';
-      case TransferStatus.submitted:
-        return 'Submitted';
-      case TransferStatus.confirmed:
-        return 'Confirmed';
-      case TransferStatus.failed:
-        return 'Failed';
-    }
-  }
-
-  Color _getStatusColor(TransferStatus status) {
-    switch (status) {
-      case TransferStatus.pending:
-        return Colors.orange;
-      case TransferStatus.submitted:
-        return Colors.blue;
-      case TransferStatus.confirmed:
-        return Colors.green;
-      case TransferStatus.failed:
-        return Colors.red;
     }
   }
 }

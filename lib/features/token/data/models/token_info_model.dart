@@ -1,6 +1,6 @@
 import '../../domain/entities/token_info.dart';
 
-/// Token info model (based on Android ABCToken model)
+/// Token info model (matches SDK)
 class TokenInfoModel extends TokenInfo {
   const TokenInfoModel({
     required super.name,
@@ -14,8 +14,12 @@ class TokenInfoModel extends TokenInfo {
     required super.network,
     super.contractAddress,
     required super.possibleSpam,
+    super.description,
+    super.website,
+    super.totalSupply,
     super.priceUsd,
     super.priceKrw,
+    super.chartData,
     super.mintAddress,
     super.associatedTokenAddress,
   });
@@ -24,6 +28,10 @@ class TokenInfoModel extends TokenInfo {
     // Parse nested price object
     final price = json['price'] as Map<String, dynamic>?;
     final coingecko = price?['coingecko'] as Map<String, dynamic>?;
+
+    // Parse marketChart for chartData
+    final marketChart = json['marketChart'] as Map<String, dynamic>?;
+    final chartData = _extractChartData(marketChart);
 
     return TokenInfoModel(
       name: json['name'] as String? ?? '',
@@ -37,11 +45,39 @@ class TokenInfoModel extends TokenInfo {
       network: json['network'] as String? ?? '',
       contractAddress: json['contractAddress'] as String?,
       possibleSpam: json['possibleSpam'] as bool? ?? false,
+      description: json['description'] as String?,
+      website: json['website'] as String?,
+      totalSupply: (json['totalSupply'] as num?)?.toDouble(),
       priceUsd: (coingecko?['USD'] as num?)?.toDouble(),
       priceKrw: (coingecko?['KRW'] as num?)?.toDouble(),
+      chartData: chartData,
       mintAddress: json['mintAddress'] as String?,
       associatedTokenAddress: json['associatedTokenAddress'] as String?,
     );
+  }
+
+  /// Extract chart data from marketChart object
+  /// API format: { "coingecko": { "USD": [[timestamp, price], ...] } }
+  static List<double>? _extractChartData(Map<String, dynamic>? marketChart) {
+    if (marketChart == null) return null;
+
+    final coingecko = marketChart['coingecko'] as Map<String, dynamic>?;
+    if (coingecko == null) return null;
+
+    final usdData = coingecko['USD'] as List?;
+    if (usdData == null || usdData.isEmpty) return null;
+
+    // Convert [[timestamp, price], ...] to [price, price, ...]
+    try {
+      return usdData.map((e) {
+        if (e is List && e.length >= 2) {
+          return (e[1] as num).toDouble();
+        }
+        return 0.0;
+      }).toList();
+    } catch (_) {
+      return null;
+    }
   }
 
   Map<String, dynamic> toJson() {
@@ -57,12 +93,21 @@ class TokenInfoModel extends TokenInfo {
       'network': network,
       'contractAddress': contractAddress,
       'possibleSpam': possibleSpam,
+      'description': description,
+      'website': website,
+      'totalSupply': totalSupply,
       'price': {
         'coingecko': {
           if (priceUsd != null) 'USD': priceUsd,
           if (priceKrw != null) 'KRW': priceKrw,
         },
       },
+      if (chartData != null)
+        'marketChart': {
+          'coingecko': {
+            'USD': chartData!.map((p) => [0, p]).toList(),
+          },
+        },
       'mintAddress': mintAddress,
       'associatedTokenAddress': associatedTokenAddress,
     };

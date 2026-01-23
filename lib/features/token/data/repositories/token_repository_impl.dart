@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/token_info.dart';
+import '../../domain/entities/transfer.dart';
 import '../../domain/repositories/token_repository.dart';
 import '../datasources/token_local_datasource.dart';
 import '../datasources/token_remote_datasource.dart';
@@ -171,5 +172,20 @@ class TokenRepositoryImpl implements TokenRepository {
   @override
   Future<void> clearCache(String walletAddress) async {
     await _localDataSource.clearCachedTokens(walletAddress);
+  }
+
+  @override
+  Future<Either<Failure, TransferDataResult>> getTransferData({
+    required GetTransferDataParams params,
+  }) async {
+    try {
+      final result = await _remoteDataSource.getTransferData(params: params);
+      return Right(result);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
+    } catch (e) {
+      log('getTransferData error: $e', name: 'TokenRepository');
+      return Left(ServerFailure(message: e.toString()));
+    }
   }
 }
