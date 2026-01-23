@@ -4,26 +4,26 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/wallet/repositories/wallet_repository.dart';
 import '../../di/injection_container.dart';
 import '../../features/browser/presentation/bloc/browser_bloc.dart';
-import '../../features/browser/presentation/pages/web3_browser_page.dart';
+import '../../features/browser/presentation/pages/web3_browser_tab.dart';
 import '../../features/token/presentation/bloc/token_bloc.dart';
-import '../../features/token/presentation/pages/token_list_page.dart';
+import '../../features/token/presentation/pages/token_tab.dart';
 import '../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../features/settings/presentation/bloc/settings_event.dart';
-import '../../features/settings/presentation/pages/settings_page.dart';
+import '../../features/settings/presentation/pages/settings_tab.dart';
 
-class MainTabPage extends StatefulWidget {
+class MainPage extends StatefulWidget {
   final String? walletAddress;
 
-  const MainTabPage({
+  const MainPage({
     super.key,
     this.walletAddress,
   });
 
   @override
-  State<MainTabPage> createState() => _MainTabPageState();
+  State<MainPage> createState() => _MainPageState();
 }
 
-class _MainTabPageState extends State<MainTabPage> {
+class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String? _walletAddress;
   bool _isLoading = true;
@@ -75,18 +75,18 @@ class _MainTabPageState extends State<MainTabPage> {
           // Token Tab
           BlocProvider(
             create: (_) => sl<TokenBloc>(),
-            child: TokenListPage(walletAddress: walletAddress),
+            child: TokenTabPage(walletAddress: walletAddress),
           ),
           // Browser Tab
           BlocProvider(
             create: (_) => sl<BrowserBloc>(),
-            child: Web3BrowserPage(walletAddress: walletAddress),
+            child: Web3BrowserTabPage(walletAddress: walletAddress),
           ),
           // Settings Tab
           BlocProvider(
             create: (_) => sl<SettingsBloc>()
               ..add(const SettingsLoadRequested()),
-            child: const SettingsPage(),
+            child: const SettingsTabPage(),
           ),
         ],
       ),

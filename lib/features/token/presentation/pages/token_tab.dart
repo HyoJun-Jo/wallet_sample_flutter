@@ -15,19 +15,19 @@ import '../bloc/token_event.dart';
 import '../bloc/token_state.dart';
 import '../widgets/token_list_item.dart';
 
-class TokenListPage extends StatefulWidget {
+class TokenTabPage extends StatefulWidget {
   final String walletAddress;
 
-  const TokenListPage({
+  const TokenTabPage({
     super.key,
     required this.walletAddress,
   });
 
   @override
-  State<TokenListPage> createState() => _TokenListPageState();
+  State<TokenTabPage> createState() => _TokenTabPageState();
 }
 
-class _TokenListPageState extends State<TokenListPage>
+class _TokenTabPageState extends State<TokenTabPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 

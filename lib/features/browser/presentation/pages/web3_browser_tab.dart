@@ -28,21 +28,21 @@ import '../widgets/transaction_request_sheet.dart';
 ///
 /// Integrated Web3 browser with Ethereum provider injection
 /// Reference: talken-mfe-flutter Web3BrowserScreen
-class Web3BrowserPage extends StatefulWidget {
+class Web3BrowserTabPage extends StatefulWidget {
   final String? initialUrl;
   final String walletAddress;
 
-  const Web3BrowserPage({
+  const Web3BrowserTabPage({
     super.key,
     this.initialUrl,
     required this.walletAddress,
   });
 
   @override
-  State<Web3BrowserPage> createState() => _Web3BrowserPageState();
+  State<Web3BrowserTabPage> createState() => _Web3BrowserTabPageState();
 }
 
-class _Web3BrowserPageState extends State<Web3BrowserPage> {
+class _Web3BrowserTabPageState extends State<Web3BrowserTabPage> {
   bool _isInitialized = false;
   AbcNetwork _currentNetwork = AbcNetwork.ethereum;
   InAppWebViewController? _webViewController;

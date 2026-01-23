@@ -7,8 +7,8 @@ import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
 
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+class SettingsTabPage extends StatelessWidget {
+  const SettingsTabPage({super.key});
 
   @override
   Widget build(BuildContext context) {

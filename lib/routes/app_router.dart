@@ -15,7 +15,7 @@ import '../features/auth/presentation/pages/password_reset_page.dart';
 import '../features/auth/presentation/pages/sns_registration_page.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../features/wallet/presentation/pages/create_wallet_page.dart';
-import '../pages/main/main_tab_page.dart';
+import '../pages/main/main_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
 import '../features/token/domain/entities/transfer.dart';
@@ -138,12 +138,12 @@ GoRouter createAppRouter(
       ),
     ),
 
-    // Main tab page (token, browser, settings)
+    // Main page (token, browser, settings tabs)
     GoRoute(
       path: '/main',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
-        return MainTabPage(
+        return MainPage(
           walletAddress: extra?['walletAddress'] as String?,
         );
       },
