@@ -23,7 +23,7 @@ import '../features/token/presentation/bloc/transfer_bloc.dart';
 import '../features/token/presentation/pages/send_token_page.dart';
 import '../features/token/presentation/pages/transfer_confirm_page.dart';
 import '../features/token/presentation/pages/transfer_complete_page.dart';
-import '../features/signing/presentation/bloc/signing_bloc.dart';
+import '../shared/signing/presentation/bloc/signing_bloc.dart';
 import '../pages/splash/splash_page.dart';
 
 // Route observer for tracking navigation

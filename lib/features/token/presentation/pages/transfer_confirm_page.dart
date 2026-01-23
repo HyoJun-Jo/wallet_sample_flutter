@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
-import '../../../signing/presentation/bloc/signing_bloc.dart';
-import '../../../signing/presentation/bloc/signing_event.dart';
-import '../../../signing/presentation/bloc/signing_state.dart';
+import '../../../../shared/signing/presentation/bloc/signing_bloc.dart';
+import '../../../../shared/signing/presentation/bloc/signing_event.dart';
+import '../../../../shared/signing/presentation/bloc/signing_state.dart';
 import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
 

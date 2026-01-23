@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
-import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
+import '../../../transaction/domain/entities/transaction_entities.dart';
+import '../../../transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/sign_request.dart';
 import '../../domain/usecases/sign_usecase.dart';
 import '../../domain/usecases/sign_typed_data_usecase.dart';

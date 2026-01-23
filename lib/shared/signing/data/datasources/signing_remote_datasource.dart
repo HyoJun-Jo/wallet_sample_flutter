@@ -6,7 +6,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../wallet/data/models/wallet_model.dart';
+import '../../../../features/wallet/data/models/wallet_model.dart';
 import '../../domain/entities/sign_request.dart';
 import '../models/sign_request_model.dart';
 

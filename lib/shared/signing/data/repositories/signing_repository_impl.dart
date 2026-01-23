@@ -2,7 +2,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/secure_storage.dart';
-import '../../../wallet/data/models/wallet_model.dart';
+import '../../../../features/wallet/data/models/wallet_model.dart';
 import '../../domain/entities/sign_request.dart';
 import '../../domain/repositories/signing_repository.dart';
 import '../datasources/signing_remote_datasource.dart';

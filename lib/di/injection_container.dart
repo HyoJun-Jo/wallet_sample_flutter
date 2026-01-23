@@ -55,13 +55,13 @@ import '../features/token/domain/usecases/send_token_usecase.dart';
 import '../features/token/presentation/bloc/transfer_bloc.dart';
 
 // Signing
-import '../features/signing/data/datasources/signing_remote_datasource.dart';
-import '../features/signing/data/repositories/signing_repository_impl.dart';
-import '../features/signing/domain/repositories/signing_repository.dart';
-import '../features/signing/domain/usecases/sign_usecase.dart';
-import '../features/signing/domain/usecases/sign_typed_data_usecase.dart';
-import '../features/signing/domain/usecases/sign_hash_usecase.dart';
-import '../features/signing/presentation/bloc/signing_bloc.dart';
+import '../shared/signing/data/datasources/signing_remote_datasource.dart';
+import '../shared/signing/data/repositories/signing_repository_impl.dart';
+import '../shared/signing/domain/repositories/signing_repository.dart';
+import '../shared/signing/domain/usecases/sign_usecase.dart';
+import '../shared/signing/domain/usecases/sign_typed_data_usecase.dart';
+import '../shared/signing/domain/usecases/sign_hash_usecase.dart';
+import '../shared/signing/presentation/bloc/signing_bloc.dart';
 
 // Shared Transaction
 import '../shared/transaction/data/datasources/transaction_remote_datasource.dart';
