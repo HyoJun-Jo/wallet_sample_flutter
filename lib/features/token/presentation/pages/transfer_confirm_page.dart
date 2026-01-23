@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
+import '../../../../core/utils/format_utils.dart';
+import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
@@ -11,8 +14,8 @@ import '../bloc/transfer_bloc.dart';
 import '../bloc/transfer_event.dart';
 import '../bloc/transfer_state.dart';
 
-/// Transfer confirmation page - shows transaction details and handles signing via BLoC
-class TransferConfirmPage extends StatelessWidget {
+/// Transfer confirmation page - Figma aligned design
+class TransferConfirmPage extends StatefulWidget {
   final TransferData transferData;
   final TransferParams transferParams;
   final String walletAddress;
@@ -27,29 +30,34 @@ class TransferConfirmPage extends StatelessWidget {
   });
 
   @override
+  State<TransferConfirmPage> createState() => _TransferConfirmPageState();
+}
+
+class _TransferConfirmPageState extends State<TransferConfirmPage> {
+  bool _isDataExpanded = false;
+
+  TransferData get transferData => widget.transferData;
+  TransferParams get transferParams => widget.transferParams;
+  TokenInfo? get token => widget.token;
+
+  @override
   Widget build(BuildContext context) {
     return BlocListener<TransferBloc, TransferState>(
       listener: (context, state) {
         if (state is TransferCompleted) {
-          // Navigate to transfer complete page
           final chainRepository = sl<ChainRepository>();
           final chain = chainRepository.getByNetwork(transferData.network);
           final decimals = chain?.decimals ?? 18;
           final isNative = token?.isNative ?? true;
 
-          final valueWei = BigInt.tryParse(
-            transferData.value.startsWith('0x')
-                ? transferData.value.substring(2)
-                : transferData.value,
-            radix: 16,
-          ) ?? BigInt.zero;
+          final valueWei = WeiUtils.parseHex(transferData.value);
 
           context.go('/transfer/complete', extra: {
             'transferData': transferData,
             'result': state.result,
-            'walletAddress': walletAddress,
+            'walletAddress': widget.walletAddress,
             'token': token,
-            'amount': isNative ? _formatWei(valueWei, decimals) : null,
+            'amount': isNative ? WeiUtils.fromWei(valueWei, decimals) : null,
           });
         } else if (state is TransferError) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -60,229 +68,477 @@ class TransferConfirmPage extends StatelessWidget {
           );
         }
       },
-      child: _TransferConfirmContent(
-        transferData: transferData,
-        transferParams: transferParams,
-        walletAddress: walletAddress,
-        token: token,
-      ),
+      child: _buildContent(context),
     );
   }
 
-  String _formatWei(BigInt wei, int decimals) {
-    if (wei == BigInt.zero) return '0';
-    final divisor = BigInt.from(10).pow(decimals);
-    final intPart = wei ~/ divisor;
-    final decPart = wei % divisor;
-
-    if (decPart == BigInt.zero) {
-      return intPart.toString();
-    }
-
-    final decStr = decPart.toString().padLeft(decimals, '0');
-    final trimmed = decStr.replaceAll(RegExp(r'0+$'), '');
-    if (trimmed.isEmpty) {
-      return intPart.toString();
-    }
-    return '$intPart.${trimmed.length > 6 ? trimmed.substring(0, 6) : trimmed}';
-  }
-}
-
-class _TransferConfirmContent extends StatelessWidget {
-  final TransferData transferData;
-  final TransferParams transferParams;
-  final String walletAddress;
-  final TokenInfo? token;
-
-  const _TransferConfirmContent({
-    required this.transferData,
-    required this.transferParams,
-    required this.walletAddress,
-    this.token,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildContent(BuildContext context) {
     final chainRepository = sl<ChainRepository>();
     final chain = chainRepository.getByNetwork(transferData.network);
     final isNative = token?.isNative ?? true;
-
-    // Calculate values for display
-    final valueWei = BigInt.tryParse(
-      transferData.value.startsWith('0x')
-          ? transferData.value.substring(2)
-          : transferData.value,
-      radix: 16,
-    ) ?? BigInt.zero;
-
-    final gasLimit = BigInt.tryParse(
-      transferData.gasLimit.startsWith('0x')
-          ? transferData.gasLimit.substring(2)
-          : transferData.gasLimit,
-      radix: 16,
-    ) ?? BigInt.zero;
-
-    final maxFeePerGas = BigInt.tryParse(
-      transferData.maxFeePerGas.startsWith('0x')
-          ? transferData.maxFeePerGas.substring(2)
-          : transferData.maxFeePerGas,
-      radix: 16,
-    ) ?? BigInt.zero;
-
-    final gasFee = gasLimit * maxFeePerGas;
     final decimals = chain?.decimals ?? 18;
     final symbol = chain?.symbol ?? 'ETH';
 
-    final valueFormatted = _formatWei(valueWei, decimals);
-    final gasFeeFormatted = _formatWei(gasFee, decimals);
+    // Calculate values
+    final valueWei = WeiUtils.parseHex(transferData.value);
+    final gasLimit = WeiUtils.parseHex(transferData.gasLimit);
+    final maxFeePerGas = WeiUtils.parseHex(transferData.maxFeePerGas);
+    final maxPriorityFeePerGas = WeiUtils.parseHex(transferData.maxPriorityFeePerGas);
+
+    final gasFee = gasLimit * maxFeePerGas;
+    final valueFormatted = WeiUtils.fromWei(valueWei, decimals);
+    final gasFeeFormatted = WeiUtils.fromWei(gasFee, decimals);
+
+    // USD values (mock for now)
+    final valueUsd = token?.priceUsd != null
+        ? double.tryParse(valueFormatted)! * token!.priceUsd!
+        : null;
+    final gasFeeUsd = chain != null ? 2.72 : null; // Mock value
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Confirm Transaction'),
+        title: const Text('Transfer request'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
       ),
       body: SafeArea(
         child: Column(
           children: [
             Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Token/Amount info
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          Text(
-                            'Sending',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            isNative
-                                ? '$valueFormatted $symbol'
-                                : '${transferParams.amount} ${token?.symbol ?? "Token"}',
-                            style: const TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          if (!isNative && token != null) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              token!.name,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
+                    // Amount Display
+                    _buildAmountSection(
+                      valueFormatted: isNative ? valueFormatted : transferParams.amount,
+                      symbol: isNative ? symbol : (token?.symbol ?? 'Token'),
+                      valueUsd: valueUsd,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 16),
 
-                    // From
-                    _buildInfoRow(
-                      'From',
-                      AddressUtils.shorten(walletAddress),
-                      Icons.account_balance_wallet,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // To
-                    _buildInfoRow(
-                      'To',
-                      AddressUtils.shorten(
-                        isNative ? transferData.to : transferParams.toAddress,
-                      ),
-                      Icons.person,
+                    // From → To
+                    _buildFromToSection(
+                      fromAddress: widget.walletAddress,
+                      toAddress: isNative ? transferData.to : transferParams.toAddress,
                     ),
                     const SizedBox(height: 12),
 
                     // Network
-                    _buildInfoRow(
-                      'Network',
-                      chain?.name ?? transferData.network,
-                      Icons.public,
-                    ),
-                    const SizedBox(height: 24),
+                    _buildNetworkSection(chain?.name ?? transferData.network),
+                    const SizedBox(height: 12),
 
-                    // Gas fee section
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Transaction Fee',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Gas Limit',
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
-                              Text(gasLimit.toString()),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Gas Price',
-                                style: TextStyle(color: Colors.grey.shade600),
-                              ),
-                              Text('${_formatGwei(maxFeePerGas)} Gwei'),
-                            ],
-                          ),
-                          const Divider(height: 24),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text(
-                                'Estimated Fee',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              Text(
-                                '$gasFeeFormatted $symbol',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+                    // Network Fee
+                    _buildNetworkFeeSection(
+                      gasFeeFormatted: gasFeeFormatted,
+                      symbol: symbol,
+                      gasFeeUsd: gasFeeUsd,
+                      maxFeePerGas: maxFeePerGas,
+                      maxPriorityFeePerGas: maxPriorityFeePerGas,
                     ),
+                    const SizedBox(height: 12),
+
+                    // Data Section
+                    _buildDataSection(),
                   ],
                 ),
               ),
             ),
 
-            // Confirm button
-            BlocBuilder<TransferBloc, TransferState>(
-              builder: (context, state) {
-                final isLoading = state is TransferLoading;
-                return Padding(
-                  padding: const EdgeInsets.all(24),
+            // Bottom Buttons
+            _buildBottomButtons(context),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAmountSection({
+    required String valueFormatted,
+    required String symbol,
+    double? valueUsd,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Token Icon
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: token?.logo != null && token!.logo!.isNotEmpty
+                ? ClipOval(
+                    child: Image.network(
+                      token!.logo!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _buildDefaultIcon(),
+                    ),
+                  )
+                : _buildDefaultIcon(),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '$valueFormatted $symbol',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (valueUsd != null)
+                Text(
+                  FormatUtils.formatUsd(valueUsd),
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDefaultIcon() {
+    return Center(
+      child: Text(
+        token?.symbol.isNotEmpty == true ? token!.symbol[0] : '?',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.grey.shade600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFromToSection({
+    required String fromAddress,
+    required String toAddress,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // From
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'From',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade200,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      AddressUtils.shorten(fromAddress),
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // Arrow
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8),
+            child: Icon(Icons.arrow_forward, size: 16),
+          ),
+          // To
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  'To',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade200,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      AddressUtils.shorten(toAddress),
+                      style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkSection(String networkName) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Network',
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Row(
+            children: [
+              Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.currency_exchange, size: 12),
+              ),
+              const SizedBox(width: 4),
+              Text(networkName, style: const TextStyle(fontSize: 14)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkFeeSection({
+    required String gasFeeFormatted,
+    required String symbol,
+    double? gasFeeUsd,
+    required BigInt maxFeePerGas,
+    required BigInt maxPriorityFeePerGas,
+  }) {
+    final maxFeeGwei = WeiUtils.toGwei(maxFeePerGas);
+    final priorityFeeGwei = WeiUtils.toGwei(maxPriorityFeePerGas);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Network Fee',
+            style: TextStyle(
+              fontSize: 14,
+              color: Theme.of(context).primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Estimated Gas Fee
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Estimated Gas Fee', style: TextStyle(fontSize: 14)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.edit, size: 14),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$gasFeeFormatted $symbol',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (gasFeeUsd != null)
+                    Text(
+                      FormatUtils.formatUsd(gasFeeUsd),
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+
+          // Speed
+          _buildFeeRow('Speed', 'High  15~30 sec'),
+
+          // Max Fee
+          _buildFeeRow('Max Fee', '$maxFeeGwei Gwei'),
+
+          // Priority Fee
+          _buildFeeRow('Priority Fee', '$priorityFeeGwei Gwei'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeeRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey.shade600)),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with toggle
+          GestureDetector(
+            onTap: () => setState(() => _isDataExpanded = !_isDataExpanded),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Data',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => _copyToClipboard(transferData.data),
+                      child: Icon(Icons.copy, size: 16, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      _isDataExpanded ? Icons.expand_less : Icons.expand_more,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          if (_isDataExpanded) ...[
+            const SizedBox(height: 12),
+            // Function
+            const Text(
+              'Function: Transfer',
+              style: TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            // Hex Data
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                transferData.data,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+                maxLines: 8,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomButtons(BuildContext context) {
+    return BlocBuilder<TransferBloc, TransferState>(
+      builder: (context, state) {
+        final isLoading = state is TransferLoading;
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Cancel Button
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: () => context.pop(),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Sign Button
+              Expanded(
+                child: SizedBox(
+                  height: 50,
                   child: ElevatedButton(
                     onPressed: isLoading
                         ? null
@@ -292,85 +548,32 @@ class _TransferConfirmContent extends StatelessWidget {
                             );
                           },
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      minimumSize: const Size(double.infinity, 56),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                     child: isLoading
                         ? const SizedBox(
-                            height: 20,
                             width: 20,
+                            height: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text(
-                            'Confirm & Sign',
-                            style: TextStyle(fontSize: 16),
-                          ),
+                        : const Text('Sign'),
                   ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey.shade600, size: 20),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontFamily: 'monospace',
-                  fontSize: 14,
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  String _formatWei(BigInt wei, int decimals) {
-    if (wei == BigInt.zero) return '0';
-    final divisor = BigInt.from(10).pow(decimals);
-    final intPart = wei ~/ divisor;
-    final decPart = wei % divisor;
-
-    if (decPart == BigInt.zero) {
-      return intPart.toString();
-    }
-
-    final decStr = decPart.toString().padLeft(decimals, '0');
-    final trimmed = decStr.replaceAll(RegExp(r'0+$'), '');
-    if (trimmed.isEmpty) {
-      return intPart.toString();
-    }
-    return '$intPart.${trimmed.length > 6 ? trimmed.substring(0, 6) : trimmed}';
+  void _copyToClipboard(String text) {
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Copied'), duration: Duration(seconds: 1)),
+    );
   }
 
-  String _formatGwei(BigInt wei) {
-    final gwei = wei ~/ BigInt.from(10).pow(9);
-    return gwei.toString();
-  }
 }

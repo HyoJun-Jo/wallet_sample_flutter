@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
+import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
@@ -37,22 +38,10 @@ class TransferCompletePage extends StatelessWidget {
     final decimals = chain?.decimals ?? 18;
 
     // Calculate gas fee
-    final gasLimit = BigInt.tryParse(
-      transferData.gasLimit.startsWith('0x')
-          ? transferData.gasLimit.substring(2)
-          : transferData.gasLimit,
-      radix: 16,
-    ) ?? BigInt.zero;
-
-    final maxFeePerGas = BigInt.tryParse(
-      transferData.maxFeePerGas.startsWith('0x')
-          ? transferData.maxFeePerGas.substring(2)
-          : transferData.maxFeePerGas,
-      radix: 16,
-    ) ?? BigInt.zero;
-
+    final gasLimit = WeiUtils.parseHex(transferData.gasLimit);
+    final maxFeePerGas = WeiUtils.parseHex(transferData.maxFeePerGas);
     final gasFee = gasLimit * maxFeePerGas;
-    final gasFeeFormatted = _formatWei(gasFee, decimals);
+    final gasFeeFormatted = WeiUtils.fromWei(gasFee, decimals);
     final nativeSymbol = chain?.symbol ?? 'ETH';
 
     // Get recipient address
@@ -278,24 +267,6 @@ class TransferCompletePage extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  String _formatWei(BigInt wei, int decimals) {
-    if (wei == BigInt.zero) return '0';
-    final divisor = BigInt.from(10).pow(decimals);
-    final intPart = wei ~/ divisor;
-    final decPart = wei % divisor;
-
-    if (decPart == BigInt.zero) {
-      return intPart.toString();
-    }
-
-    final decStr = decPart.toString().padLeft(decimals, '0');
-    final trimmed = decStr.replaceAll(RegExp(r'0+$'), '');
-    if (trimmed.isEmpty) {
-      return intPart.toString();
-    }
-    return '$intPart.${trimmed.length > 6 ? trimmed.substring(0, 6) : trimmed}';
   }
 
   String _extractToAddress(String data) {

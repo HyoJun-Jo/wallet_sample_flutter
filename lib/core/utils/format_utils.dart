@@ -57,8 +57,20 @@ class FormatUtils {
   }
 
   /// Format percentage
-  static String formatPercent(double value, {int decimals = 2}) {
-    return '${(value * 100).toStringAsFixed(decimals)}%';
+  /// If [showSign] is true, prepends + for positive values
+  /// If [asRaw] is true, treats value as already percentage (not multiplied by 100)
+  static String formatPercent(
+    double value, {
+    int decimals = 2,
+    bool showSign = false,
+    bool asRaw = false,
+  }) {
+    final percent = asRaw ? value : value * 100;
+    final formatted = percent.toStringAsFixed(decimals);
+    if (showSign && percent >= 0) {
+      return '+$formatted%';
+    }
+    return '$formatted%';
   }
 
   static String _addCommas(String value) {
