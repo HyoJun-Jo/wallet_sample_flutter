@@ -1,8 +1,7 @@
 import 'package:dartz/dartz.dart';
-import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/sign_request.dart';
+import '../entities/signing_entities.dart';
 import '../repositories/signing_repository.dart';
 
 /// Sign Hash UseCase
@@ -13,15 +12,6 @@ class SignHashUseCase implements UseCase<SignResult, SignHashParams> {
 
   @override
   Future<Either<Failure, SignResult>> call(SignHashParams params) {
-    return _repository.signHash(request: params.request);
+    return _repository.signHash(params: params);
   }
-}
-
-class SignHashParams extends Equatable {
-  final HashSignRequest request;
-
-  const SignHashParams({required this.request});
-
-  @override
-  List<Object?> get props => [request];
 }

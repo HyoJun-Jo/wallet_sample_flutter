@@ -7,26 +7,26 @@ import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../features/wallet/data/models/wallet_model.dart';
-import '../../domain/entities/sign_request.dart';
-import '../models/sign_request_model.dart';
+import '../../domain/entities/signing_entities.dart';
+import '../models/signing_models.dart';
 
 /// Signing Remote DataSource interface
 abstract class SigningRemoteDataSource {
-  /// Sign message
-  Future<SignResultModel> sign({
-    required SignRequest request,
+  /// Personal sign
+  Future<SignResultModel> personalSign({
+    required PersonalSignParams params,
     required WalletCreateResultModel credentials,
   });
 
   /// Sign typed data (EIP-712)
   Future<SignResultModel> signTypedData({
-    required TypedDataSignRequest request,
+    required SignTypedDataParams params,
     required WalletCreateResultModel credentials,
   });
 
   /// Sign hash
   Future<SignResultModel> signHash({
-    required HashSignRequest request,
+    required SignHashParams params,
     required WalletCreateResultModel credentials,
   });
 }
@@ -43,8 +43,8 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
         _secureChannelService = secureChannelService;
 
   @override
-  Future<SignResultModel> sign({
-    required SignRequest request,
+  Future<SignResultModel> personalSign({
+    required PersonalSignParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
@@ -66,11 +66,11 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       final response = await _apiClient.post(
         ApiEndpoints.sign,
         data: {
-          'msg': request.msg,
-          'network': request.network,
-          'account_id': request.accountId,
-          'msg_type': _msgTypeToString(request.msgType),
-          'language': request.language,
+          'msg': params.message,
+          'network': params.network,
+          'account_id': params.accountId,
+          'msg_type': _msgTypeToString(params.msgType),
+          'language': params.language,
           // Wallet credentials (encrypted with SecureChannel)
           'wid': encryptedWid,
           'uid': credentials.uid,
@@ -102,7 +102,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
 
   @override
   Future<SignResultModel> signTypedData({
-    required TypedDataSignRequest request,
+    required SignTypedDataParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
@@ -122,8 +122,8 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       );
 
       final requestData = {
-        'network': request.network,
-        'messageJson': request.typeDataMsg,
+        'network': params.network,
+        'messageJson': params.messageJson,
         'version': 'v4', // EIP-712 version (v3 or v4)
         // Wallet credentials (encrypted with SecureChannel)
         'wid': encryptedWid,
@@ -134,10 +134,10 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       };
 
       developer.log('[SigningDataSource] signTypedData request:', name: 'SigningDataSource');
-      developer.log('  network: ${request.network}', name: 'SigningDataSource');
+      developer.log('  network: ${params.network}', name: 'SigningDataSource');
       developer.log('  version: v4', name: 'SigningDataSource');
-      developer.log('  messageJson length: ${request.typeDataMsg.length}', name: 'SigningDataSource');
-      developer.log('  messageJson (first 200): ${request.typeDataMsg.substring(0, request.typeDataMsg.length > 200 ? 200 : request.typeDataMsg.length)}', name: 'SigningDataSource');
+      developer.log('  messageJson length: ${params.messageJson.length}', name: 'SigningDataSource');
+      developer.log('  messageJson (first 200): ${params.messageJson.substring(0, params.messageJson.length > 200 ? 200 : params.messageJson.length)}', name: 'SigningDataSource');
 
       final response = await _apiClient.post(
         ApiEndpoints.signTypedData,
@@ -173,7 +173,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
 
   @override
   Future<SignResultModel> signHash({
-    required HashSignRequest request,
+    required SignHashParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
@@ -195,9 +195,9 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       final response = await _apiClient.post(
         ApiEndpoints.signHash,
         data: {
-          'network': request.network,
-          'account_id': request.accountId,
-          'hash': request.hash,
+          'network': params.network,
+          'account_id': params.accountId,
+          'hash': params.hash,
           // Wallet credentials (encrypted with SecureChannel)
           'wid': encryptedWid,
           'uid': credentials.uid,

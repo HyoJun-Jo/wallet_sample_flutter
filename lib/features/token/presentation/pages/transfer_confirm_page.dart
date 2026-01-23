@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
-import '../../../../shared/signing/presentation/bloc/signing_bloc.dart';
-import '../../../../shared/signing/presentation/bloc/signing_event.dart';
-import '../../../../shared/signing/presentation/bloc/signing_state.dart';
+import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
+import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
 
 /// Transfer confirmation page - shows transaction details and handles signing
-class TransferConfirmPage extends StatelessWidget {
+class TransferConfirmPage extends StatefulWidget {
   final TransferData transferData;
   final String walletAddress;
   final TokenInfo? token;
@@ -25,54 +23,135 @@ class TransferConfirmPage extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<SigningBloc>(),
-      child: _TransferConfirmView(
-        transferData: transferData,
-        walletAddress: walletAddress,
-        token: token,
-      ),
-    );
-  }
+  State<TransferConfirmPage> createState() => _TransferConfirmPageState();
 }
 
-class _TransferConfirmView extends StatelessWidget {
-  final TransferData transferData;
-  final String walletAddress;
-  final TokenInfo? token;
+class _TransferConfirmPageState extends State<TransferConfirmPage> {
+  final TransactionRepository _transactionRepository = sl<TransactionRepository>();
 
-  const _TransferConfirmView({
-    required this.transferData,
-    required this.walletAddress,
-    this.token,
-  });
+  bool _isLoading = false;
+  String? _error;
+
+  Future<void> _onConfirm() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      // 1. Sign transaction
+      final signResult = await _transactionRepository.signTransaction(
+        params: SignTransactionParams(
+          network: widget.transferData.network,
+          from: widget.transferData.from,
+          to: widget.transferData.to,
+          value: widget.transferData.value,
+          data: widget.transferData.data,
+          nonce: widget.transferData.nonce,
+          gasLimit: widget.transferData.gasLimit,
+          maxFeePerGas: widget.transferData.maxFeePerGas,
+          maxPriorityFeePerGas: widget.transferData.maxPriorityFeePerGas,
+          type: SignType.eip1559,
+        ),
+      );
+
+      final signedTx = signResult.fold(
+        (failure) {
+          setState(() {
+            _error = failure.message;
+            _isLoading = false;
+          });
+          return null;
+        },
+        (result) => result.serializedTx ?? result.rawTx,
+      );
+
+      if (signedTx == null) {
+        if (_error == null) {
+          setState(() {
+            _error = 'Signing completed but no serializedTx returned';
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      // 2. Send transaction
+      final sendResult = await _transactionRepository.sendTransaction(
+        params: SendTransactionParams(
+          network: widget.transferData.network,
+          signedTx: signedTx,
+        ),
+      );
+
+      sendResult.fold(
+        (failure) {
+          setState(() {
+            _error = failure.message;
+            _isLoading = false;
+          });
+        },
+        (result) {
+          // Navigate to transfer complete page
+          if (mounted) {
+            final isNative = widget.token?.isNative ?? true;
+            final chainRepository = sl<ChainRepository>();
+            final chain = chainRepository.getByNetwork(widget.transferData.network);
+            final decimals = chain?.decimals ?? 18;
+
+            final valueWei = BigInt.tryParse(
+              widget.transferData.value.startsWith('0x')
+                  ? widget.transferData.value.substring(2)
+                  : widget.transferData.value,
+              radix: 16,
+            ) ?? BigInt.zero;
+
+            context.go('/transfer/complete', extra: {
+              'transferData': widget.transferData,
+              'result': TransferResult(
+                txHash: result.txHash,
+                status: TransferStatus.submitted,
+              ),
+              'walletAddress': widget.walletAddress,
+              'token': widget.token,
+              'amount': isNative ? _formatWei(valueWei, decimals) : null,
+            });
+          }
+        },
+      );
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final chainRepository = sl<ChainRepository>();
-    final chain = chainRepository.getByNetwork(transferData.network);
-    final isNative = token?.isNative ?? true;
+    final chain = chainRepository.getByNetwork(widget.transferData.network);
+    final isNative = widget.token?.isNative ?? true;
 
     // Calculate values for display
     final valueWei = BigInt.tryParse(
-      transferData.value.startsWith('0x')
-          ? transferData.value.substring(2)
-          : transferData.value,
+      widget.transferData.value.startsWith('0x')
+          ? widget.transferData.value.substring(2)
+          : widget.transferData.value,
       radix: 16,
     ) ?? BigInt.zero;
 
     final gasLimit = BigInt.tryParse(
-      transferData.gasLimit.startsWith('0x')
-          ? transferData.gasLimit.substring(2)
-          : transferData.gasLimit,
+      widget.transferData.gasLimit.startsWith('0x')
+          ? widget.transferData.gasLimit.substring(2)
+          : widget.transferData.gasLimit,
       radix: 16,
     ) ?? BigInt.zero;
 
     final maxFeePerGas = BigInt.tryParse(
-      transferData.maxFeePerGas.startsWith('0x')
-          ? transferData.maxFeePerGas.substring(2)
-          : transferData.maxFeePerGas,
+      widget.transferData.maxFeePerGas.startsWith('0x')
+          ? widget.transferData.maxFeePerGas.substring(2)
+          : widget.transferData.maxFeePerGas,
       radix: 16,
     ) ?? BigInt.zero;
 
@@ -88,203 +167,179 @@ class _TransferConfirmView extends StatelessWidget {
         title: const Text('Confirm Transaction'),
       ),
       body: SafeArea(
-        child: BlocConsumer<SigningBloc, SigningState>(
-          listener: (context, state) {
-            if (state is SigningCompleted) {
-              // Transaction signed, now send it
-              // Use serializedTx (full RLP-encoded signed tx), not rawTx (just hash)
-              final signedTx = state.result.serializedTx ?? state.result.rawTx;
-              if (signedTx != null) {
-                context.read<SigningBloc>().add(SendTransactionRequested(
-                      network: transferData.network,
-                      signedTx: signedTx,
-                    ));
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Signing completed but no serializedTx returned')),
-                );
-              }
-            } else if (state is TransactionSent) {
-              // Navigate to transfer complete page
-              context.go('/transfer/complete', extra: {
-                'transferData': transferData,
-                'result': TransferResult(
-                  txHash: state.txHash,
-                  status: TransferStatus.submitted,
-                ),
-                'walletAddress': walletAddress,
-                'token': token,
-                'amount': isNative ? valueFormatted : null,
-              });
-            } else if (state is SigningError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.message)),
-              );
-            }
-          },
-          builder: (context, state) {
-            return Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // Token/Amount info
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(16),
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Error message
+                    if (_error != null)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: TextStyle(color: Colors.red.shade700),
+                        ),
+                      ),
+
+                    // Token/Amount info
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'Sending',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                            ),
                           ),
-                          child: Column(
+                          const SizedBox(height: 8),
+                          Text(
+                            isNative
+                                ? '$valueFormatted $symbol'
+                                : widget.token?.symbol ?? 'Token',
+                            style: const TextStyle(
+                              fontSize: 28,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (!isNative && widget.token != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.token!.name,
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // From
+                    _buildInfoRow(
+                      'From',
+                      AddressUtils.shorten(widget.walletAddress),
+                      Icons.account_balance_wallet,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // To
+                    _buildInfoRow(
+                      'To',
+                      AddressUtils.shorten(
+                        isNative ? widget.transferData.to : _extractToAddress(widget.transferData.data),
+                      ),
+                      Icons.person,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Network
+                    _buildInfoRow(
+                      'Network',
+                      chain?.name ?? widget.transferData.network,
+                      Icons.public,
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Gas fee section
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Transaction Fee',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'Sending',
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                  fontSize: 14,
-                                ),
+                                'Gas Limit',
+                                style: TextStyle(color: Colors.grey.shade600),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                isNative
-                                    ? '$valueFormatted $symbol'
-                                    : token?.symbol ?? 'Token',
-                                style: const TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (!isNative && token != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  token!.name,
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
+                              Text(gasLimit.toString()),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // From
-                        _buildInfoRow(
-                          'From',
-                          AddressUtils.shorten(walletAddress),
-                          Icons.account_balance_wallet,
-                        ),
-                        const SizedBox(height: 12),
-
-                        // To
-                        _buildInfoRow(
-                          'To',
-                          AddressUtils.shorten(
-                            isNative ? transferData.to : _extractToAddress(transferData.data),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Gas Price',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                              Text('${_formatGwei(maxFeePerGas)} Gwei'),
+                            ],
                           ),
-                          Icons.person,
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Network
-                        _buildInfoRow(
-                          'Network',
-                          chain?.name ?? transferData.network,
-                          Icons.public,
-                        ),
-                        const SizedBox(height: 24),
-
-                        // Gas fee section
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          const Divider(height: 24),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               const Text(
-                                'Transaction Fee',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                                'Estimated Fee',
+                                style: TextStyle(fontWeight: FontWeight.bold),
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Gas Limit',
-                                    style: TextStyle(color: Colors.grey.shade600),
-                                  ),
-                                  Text(gasLimit.toString()),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Gas Price',
-                                    style: TextStyle(color: Colors.grey.shade600),
-                                  ),
-                                  Text('${_formatGwei(maxFeePerGas)} Gwei'),
-                                ],
-                              ),
-                              const Divider(height: 24),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Estimated Fee',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                  Text(
-                                    '$gasFeeFormatted $symbol',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
+                              Text(
+                                '$gasFeeFormatted $symbol',
+                                style: const TextStyle(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+            ),
 
-                // Confirm button
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: ElevatedButton(
-                    onPressed: state is SigningLoading
-                        ? null
-                        : () => _onConfirm(context),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      minimumSize: const Size(double.infinity, 56),
-                    ),
-                    child: state is SigningLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Confirm & Sign',
-                            style: TextStyle(fontSize: 16),
-                          ),
-                  ),
+            // Confirm button
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _onConfirm,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  minimumSize: const Size(double.infinity, 56),
                 ),
-              ],
-            );
-          },
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text(
+                        'Confirm & Sign',
+                        style: TextStyle(fontSize: 16),
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -324,22 +379,6 @@ class _TransferConfirmView extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  void _onConfirm(BuildContext context) {
-    // Use EIP-1559 signing
-    context.read<SigningBloc>().add(SignEip1559Requested(
-          accountId: walletAddress,
-          network: transferData.network,
-          from: transferData.from,
-          to: transferData.to,
-          value: transferData.value,
-          data: transferData.data,
-          nonce: transferData.nonce,
-          gasLimit: transferData.gasLimit,
-          maxFeePerGas: transferData.maxFeePerGas,
-          maxPriorityFeePerGas: transferData.maxPriorityFeePerGas,
-        ));
   }
 
   String _formatWei(BigInt wei, int decimals) {

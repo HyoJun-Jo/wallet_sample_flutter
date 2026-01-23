@@ -1,27 +1,17 @@
 import 'package:dartz/dartz.dart';
-import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/sign_request.dart';
+import '../entities/signing_entities.dart';
 import '../repositories/signing_repository.dart';
 
-/// Sign UseCase
-class SignUseCase implements UseCase<SignResult, SignParams> {
+/// Personal Sign UseCase
+class PersonalSignUseCase implements UseCase<SignResult, PersonalSignParams> {
   final SigningRepository _repository;
 
-  SignUseCase(this._repository);
+  PersonalSignUseCase(this._repository);
 
   @override
-  Future<Either<Failure, SignResult>> call(SignParams params) {
-    return _repository.sign(request: params.request);
+  Future<Either<Failure, SignResult>> call(PersonalSignParams params) {
+    return _repository.personalSign(params: params);
   }
-}
-
-class SignParams extends Equatable {
-  final SignRequest request;
-
-  const SignParams({required this.request});
-
-  @override
-  List<Object?> get props => [request];
 }

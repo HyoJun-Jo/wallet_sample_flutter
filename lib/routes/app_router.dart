@@ -23,7 +23,6 @@ import '../features/token/presentation/bloc/transfer_bloc.dart';
 import '../features/token/presentation/pages/send_token_page.dart';
 import '../features/token/presentation/pages/transfer_confirm_page.dart';
 import '../features/token/presentation/pages/transfer_complete_page.dart';
-import '../shared/signing/presentation/bloc/signing_bloc.dart';
 import '../pages/splash/splash_page.dart';
 
 // Route observer for tracking navigation
@@ -182,16 +181,10 @@ GoRouter createAppRouter(
       path: '/transfer/confirm',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
-        return MultiBlocProvider(
-          providers: [
-            BlocProvider(create: (_) => sl<SigningBloc>()),
-            BlocProvider(create: (_) => sl<TransferBloc>()),
-          ],
-          child: TransferConfirmPage(
-            transferData: extra['transferData'] as TransferData,
-            walletAddress: extra['walletAddress'] as String,
-            token: extra['token'] as TokenInfo?,
-          ),
+        return TransferConfirmPage(
+          transferData: extra['transferData'] as TransferData,
+          walletAddress: extra['walletAddress'] as String,
+          token: extra['token'] as TokenInfo?,
         );
       },
     ),

@@ -61,7 +61,6 @@ import '../shared/signing/domain/repositories/signing_repository.dart';
 import '../shared/signing/domain/usecases/sign_usecase.dart';
 import '../shared/signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../shared/signing/domain/usecases/sign_hash_usecase.dart';
-import '../shared/signing/presentation/bloc/signing_bloc.dart';
 
 // Shared Transaction
 import '../shared/transaction/data/datasources/transaction_remote_datasource.dart';
@@ -296,7 +295,7 @@ Future<void> init() async {
   );
 
   // UseCases
-  sl.registerLazySingleton(() => SignUseCase(sl()));
+  sl.registerLazySingleton(() => PersonalSignUseCase(sl()));
   sl.registerLazySingleton(() => SignTypedDataUseCase(sl()));
   sl.registerLazySingleton(() => SignHashUseCase(sl()));
 
@@ -317,13 +316,6 @@ Future<void> init() async {
     ),
   );
 
-  // BLoC
-  sl.registerFactory(() => SigningBloc(
-        signUseCase: sl(),
-        signTypedDataUseCase: sl(),
-        signHashUseCase: sl(),
-        transactionRepository: sl(),
-      ));
 
   // DataSource
   sl.registerLazySingleton<BookmarkLocalDataSource>(

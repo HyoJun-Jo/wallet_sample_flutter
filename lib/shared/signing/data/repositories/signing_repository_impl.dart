@@ -3,7 +3,7 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../features/wallet/data/models/wallet_model.dart';
-import '../../domain/entities/sign_request.dart';
+import '../../domain/entities/signing_entities.dart';
 import '../../domain/repositories/signing_repository.dart';
 import '../datasources/signing_remote_datasource.dart';
 
@@ -31,13 +31,13 @@ class SigningRepositoryImpl implements SigningRepository {
   }
 
   @override
-  Future<Either<Failure, SignResult>> sign({
-    required SignRequest request,
+  Future<Either<Failure, SignResult>> personalSign({
+    required PersonalSignParams params,
   }) async {
     try {
       final credentials = await _getCredentials();
-      final result = await _remoteDataSource.sign(
-        request: request,
+      final result = await _remoteDataSource.personalSign(
+        params: params,
         credentials: credentials,
       );
       return Right(result);
@@ -52,12 +52,12 @@ class SigningRepositoryImpl implements SigningRepository {
 
   @override
   Future<Either<Failure, SignResult>> signTypedData({
-    required TypedDataSignRequest request,
+    required SignTypedDataParams params,
   }) async {
     try {
       final credentials = await _getCredentials();
       final result = await _remoteDataSource.signTypedData(
-        request: request,
+        params: params,
         credentials: credentials,
       );
       return Right(result);
@@ -72,12 +72,12 @@ class SigningRepositoryImpl implements SigningRepository {
 
   @override
   Future<Either<Failure, SignResult>> signHash({
-    required HashSignRequest request,
+    required SignHashParams params,
   }) async {
     try {
       final credentials = await _getCredentials();
       final result = await _remoteDataSource.signHash(
-        request: request,
+        params: params,
         credentials: credentials,
       );
       return Right(result);

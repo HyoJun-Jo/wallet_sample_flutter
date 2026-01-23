@@ -14,9 +14,9 @@ import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
-import '../../../../shared/signing/domain/entities/sign_request.dart';
+import '../../../../shared/signing/domain/entities/signing_entities.dart';
 import '../../../../shared/signing/domain/usecases/sign_typed_data_usecase.dart';
-import '../../../../shared/signing/domain/usecases/sign_usecase.dart';
+import '../../../../shared/signing/domain/usecases/sign_usecase.dart' show PersonalSignUseCase;
 import '../bloc/browser_bloc.dart';
 import '../bloc/browser_event.dart';
 import '../bloc/browser_state.dart';
@@ -52,7 +52,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
   // Signing UseCases (required for Web3 callbacks)
   final SignTypedDataUseCase _signTypedDataUseCase = sl<SignTypedDataUseCase>();
-  final SignUseCase _signUseCase = sl<SignUseCase>();
+  final PersonalSignUseCase _personalSignUseCase = sl<PersonalSignUseCase>();
 
   // Transaction Repository (for nonce, gas, signTransaction, sendTransaction)
   final TransactionRepository _transactionRepository = sl<TransactionRepository>();
@@ -188,14 +188,12 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
       throw Exception('User rejected sign request');
     }
 
-    final result = await _signUseCase(
-      SignParams(
-        request: SignRequest(
-          msgType: MessageType.message,
-          accountId: widget.walletAddress,
-          network: _currentNetwork.value,
-          msg: message,
-        ),
+    final result = await _personalSignUseCase(
+      PersonalSignParams(
+        msgType: MessageType.message,
+        accountId: widget.walletAddress,
+        network: _currentNetwork.value,
+        message: message,
       ),
     );
 
@@ -226,11 +224,9 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
     final result = await _signTypedDataUseCase(
       SignTypedDataParams(
-        request: TypedDataSignRequest(
-          accountId: widget.walletAddress,
-          network: _currentNetwork.value,
-          typeDataMsg: typedData,
-        ),
+        accountId: widget.walletAddress,
+        network: _currentNetwork.value,
+        messageJson: typedData,
       ),
     );
 
