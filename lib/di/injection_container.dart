@@ -49,7 +49,6 @@ import '../features/token/domain/usecases/get_all_tokens_usecase.dart';
 import '../features/token/presentation/bloc/token_bloc.dart';
 
 // Transfer
-import '../features/token/data/datasources/transfer_remote_datasource.dart';
 import '../features/token/data/repositories/transfer_repository_impl.dart';
 import '../features/token/domain/repositories/transfer_repository.dart';
 import '../features/token/domain/usecases/send_token_usecase.dart';
@@ -261,15 +260,10 @@ Future<void> init() async {
         getAllTokensUseCase: sl(),
       ));
 
-  // DataSource
-  sl.registerLazySingleton<TransferRemoteDataSource>(
-    () => TransferRemoteDataSourceImpl(apiClient: sl()),
-  );
-
-  // Repository
+  // Repository (uses TokenRemoteDataSource)
   sl.registerLazySingleton<TransferRepository>(
     () => TransferRepositoryImpl(
-      remoteDataSource: sl(),
+      remoteDataSource: sl<TokenRemoteDataSource>(),
       chainService: sl(),
       apiClient: sl(),
     ),

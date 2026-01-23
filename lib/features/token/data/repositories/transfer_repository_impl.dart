@@ -10,16 +10,16 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/chain/chain_repository.dart';
 import '../../domain/entities/transfer.dart';
 import '../../domain/repositories/transfer_repository.dart';
-import '../datasources/transfer_remote_datasource.dart';
+import '../datasources/token_remote_datasource.dart';
 import '../models/transfer_model.dart';
 
 class TransferRepositoryImpl implements TransferRepository {
-  final TransferRemoteDataSource _remoteDataSource;
+  final TokenRemoteDataSource _remoteDataSource;
   final ChainRepository _chainRepository;
   final ApiClient _apiClient;
 
   TransferRepositoryImpl({
-    required TransferRemoteDataSource remoteDataSource,
+    required TokenRemoteDataSource remoteDataSource,
     required ChainRepository chainService,
     required ApiClient apiClient,
   })  : _remoteDataSource = remoteDataSource,
