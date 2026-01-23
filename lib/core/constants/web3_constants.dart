@@ -1,5 +1,3 @@
-import '../config/app_config.dart';
-
 /// Web3 Constants
 ///
 /// Centralized constants for Web3 WebView configuration

@@ -62,11 +62,12 @@ import '../features/signing/domain/usecases/sign_usecase.dart';
 import '../features/signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../features/signing/domain/usecases/sign_hash_usecase.dart';
 import '../features/signing/domain/usecases/sign_eip1559_usecase.dart';
-import '../features/signing/domain/usecases/get_nonce_usecase.dart';
-import '../features/signing/domain/usecases/estimate_gas_usecase.dart';
-import '../features/signing/domain/usecases/get_suggested_gas_fees_usecase.dart';
-import '../features/signing/domain/usecases/send_signed_transaction_usecase.dart';
 import '../features/signing/presentation/bloc/signing_bloc.dart';
+
+// Shared Transaction
+import '../shared/transaction/data/datasources/transaction_remote_datasource.dart';
+import '../shared/transaction/data/repositories/transaction_repository_impl.dart';
+import '../shared/transaction/domain/repositories/transaction_repository.dart';
 
 // Browser
 import '../features/browser/data/datasources/bookmark_local_datasource.dart';
@@ -300,10 +301,17 @@ Future<void> init() async {
   sl.registerLazySingleton(() => SignTypedDataUseCase(sl()));
   sl.registerLazySingleton(() => SignHashUseCase(sl()));
   sl.registerLazySingleton(() => SignEip1559UseCase(sl()));
-  sl.registerLazySingleton(() => GetNonceUseCase(sl()));
-  sl.registerLazySingleton(() => EstimateGasUseCase(sl()));
-  sl.registerLazySingleton(() => GetSuggestedGasFeesUseCase(sl()));
-  sl.registerLazySingleton(() => SendSignedTransactionUseCase(sl()));
+
+  // Shared Transaction
+  // DataSource
+  sl.registerLazySingleton<TransactionRemoteDataSource>(
+    () => TransactionRemoteDataSourceImpl(apiClient: sl()),
+  );
+
+  // Repository
+  sl.registerLazySingleton<TransactionRepository>(
+    () => TransactionRepositoryImpl(remoteDataSource: sl()),
+  );
 
   // BLoC
   sl.registerFactory(() => SigningBloc(
@@ -311,6 +319,7 @@ Future<void> init() async {
         signTypedDataUseCase: sl(),
         signHashUseCase: sl(),
         signingRepository: sl(),
+        transactionRepository: sl(),
       ));
 
   // DataSource

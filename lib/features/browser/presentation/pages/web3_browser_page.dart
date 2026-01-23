@@ -12,14 +12,12 @@ import '../../../../core/constants/web3_constants.dart';
 import '../../../../core/enums/abc_network.dart';
 import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
+import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
+import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../../signing/domain/entities/sign_request.dart';
 import '../../../signing/domain/usecases/sign_eip1559_usecase.dart';
 import '../../../signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../../../signing/domain/usecases/sign_usecase.dart';
-import '../../../signing/domain/usecases/get_nonce_usecase.dart';
-import '../../../signing/domain/usecases/estimate_gas_usecase.dart';
-import '../../../signing/domain/usecases/get_suggested_gas_fees_usecase.dart';
-import '../../../signing/domain/usecases/send_signed_transaction_usecase.dart';
 import '../bloc/browser_bloc.dart';
 import '../bloc/browser_event.dart';
 import '../bloc/browser_state.dart';
@@ -57,10 +55,9 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   final SignEip1559UseCase _signEip1559UseCase = sl<SignEip1559UseCase>();
   final SignTypedDataUseCase _signTypedDataUseCase = sl<SignTypedDataUseCase>();
   final SignUseCase _signUseCase = sl<SignUseCase>();
-  final GetNonceUseCase _getNonceUseCase = sl<GetNonceUseCase>();
-  final EstimateGasUseCase _estimateGasUseCase = sl<EstimateGasUseCase>();
-  final GetSuggestedGasFeesUseCase _getSuggestedGasFeesUseCase = sl<GetSuggestedGasFeesUseCase>();
-  final SendSignedTransactionUseCase _sendSignedTransactionUseCase = sl<SendSignedTransactionUseCase>();
+
+  // Transaction Repository (for nonce, gas, send)
+  final TransactionRepository _transactionRepository = sl<TransactionRepository>();
 
   @override
   void initState() {
@@ -274,19 +271,20 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
     final value = WeiUtils.parseToWeiHex(rawValue);
 
     // 1. Get nonce
-    final nonceResult = await _getNonceUseCase(
-      GetNonceParams(address: from, network: network),
+    final nonceResult = await _transactionRepository.getNonce(
+      address: from,
+      network: network,
     );
     final nonce = nonceResult.fold(
-      (failure) => '0',
+      (failure) => '0x0',
       (n) => n,
     );
 
     // 2. Estimate gas or use provided gas limit
-    String gasLimit = tx.gas ?? '21000';
+    String gasLimit = tx.gas ?? '0x5208'; // 21000 in hex
     if (tx.gas == null || tx.gas!.isEmpty) {
-      final gasResult = await _estimateGasUseCase(
-        EstimateGasParams(
+      final gasResult = await _transactionRepository.estimateGas(
+        params: EstimateGasParams(
           network: network,
           from: from,
           to: to,
@@ -295,28 +293,39 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
         ),
       );
       gasLimit = gasResult.fold(
-        (failure) => data.length > 2 ? '100000' : '21000',
-        (g) => g,
+        (failure) => data.length > 2 ? '0x186a0' : '0x5208', // 100000 or 21000 in hex
+        (g) => g.gasLimit,
       );
     }
 
     // 3. Get suggested gas fees
-    final gasFeeResult = await _getSuggestedGasFeesUseCase(
-      GetSuggestedGasFeesParams(network: network),
+    final gasFeeResult = await _transactionRepository.getGasFees(
+      network: network,
     );
     final gasFees = gasFeeResult.fold(
-      (failure) => const GasFeeInfo(
-        gasPrice: '20000000000',
-        maxFeePerGas: '20000000000',
-        maxPriorityFeePerGas: '1000000000',
-        estimatedGas: '21000',
+      (failure) => GasFees(
+        low: const GasFeeDetail(
+          maxFeePerGas: '0x4a817c800', // 20 gwei
+          maxPriorityFeePerGas: '0x3b9aca00', // 1 gwei
+        ),
+        medium: const GasFeeDetail(
+          maxFeePerGas: '0x4a817c800',
+          maxPriorityFeePerGas: '0x3b9aca00',
+        ),
+        high: const GasFeeDetail(
+          maxFeePerGas: '0x4a817c800',
+          maxPriorityFeePerGas: '0x3b9aca00',
+        ),
+        baseFee: '0',
+        network: network,
       ),
       (g) => g,
     );
 
     // 4. Sign EIP-1559 transaction
-    final maxPriorityFeeWei = WeiUtils.gweiToWeiHex(gasFees.maxPriorityFeePerGas ?? '1');
-    final maxFeeWei = WeiUtils.gweiToWeiHex(gasFees.maxFeePerGas ?? gasFees.gasPrice);
+    // Use medium gas fees (already in hex wei format from repository)
+    final maxPriorityFeeWei = gasFees.medium.maxPriorityFeePerGas;
+    final maxFeeWei = gasFees.medium.maxFeePerGas;
 
     final signResult = await _signEip1559UseCase(
       SignEip1559Params(
@@ -347,8 +356,8 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
         }
 
         // 5. Send signed transaction
-        final sendResult = await _sendSignedTransactionUseCase(
-          SendSignedTransactionParams(
+        final sendResult = await _transactionRepository.sendTransaction(
+          params: SendTransactionParams(
             network: network,
             signedTx: serializedTx,
           ),
@@ -359,7 +368,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
             log('Send failed: ${failure.message}', name: 'Web3Browser');
             throw Exception(failure.message);
           },
-          (txHash) => txHash,
+          (txResult) => txResult.txHash,
         );
       },
     );
@@ -392,7 +401,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   /// Handle unsupported RPC methods
   Future<dynamic> _onDefaultCallback(JsCallBackData data) async {
     final method = data.method;
-    final params = data.params;
+    // params available via data.params if needed for specific methods
 
     // Handle common unsupported methods gracefully
     switch (method) {

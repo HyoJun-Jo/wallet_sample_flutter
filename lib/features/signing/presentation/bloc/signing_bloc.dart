@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
+import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/sign_request.dart';
 import '../../domain/repositories/signing_repository.dart';
 import '../../domain/usecases/sign_usecase.dart';
@@ -13,16 +15,19 @@ class SigningBloc extends Bloc<SigningEvent, SigningState> {
   final SignTypedDataUseCase _signTypedDataUseCase;
   final SignHashUseCase _signHashUseCase;
   final SigningRepository _signingRepository;
+  final TransactionRepository _transactionRepository;
 
   SigningBloc({
     required SignUseCase signUseCase,
     required SignTypedDataUseCase signTypedDataUseCase,
     required SignHashUseCase signHashUseCase,
     required SigningRepository signingRepository,
+    required TransactionRepository transactionRepository,
   })  : _signUseCase = signUseCase,
         _signTypedDataUseCase = signTypedDataUseCase,
         _signHashUseCase = signHashUseCase,
         _signingRepository = signingRepository,
+        _transactionRepository = transactionRepository,
         super(const SigningInitial()) {
     on<SignMessageRequested>(_onSignMessageRequested);
     on<SignTypedDataRequested>(_onSignTypedDataRequested);
@@ -127,14 +132,16 @@ class SigningBloc extends Bloc<SigningEvent, SigningState> {
   ) async {
     emit(const SigningLoading());
 
-    final result = await _signingRepository.sendTransaction(
-      network: event.network,
-      signedTx: event.signedTx,
+    final result = await _transactionRepository.sendTransaction(
+      params: SendTransactionParams(
+        network: event.network,
+        signedTx: event.signedTx,
+      ),
     );
 
     result.fold(
       (failure) => emit(SigningError(message: failure.message)),
-      (txHash) => emit(TransactionSent(txHash: txHash)),
+      (txResult) => emit(TransactionSent(txHash: txResult.txHash)),
     );
   }
 
