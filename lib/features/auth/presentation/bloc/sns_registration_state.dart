@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 
 /// SNS registration state base class
 sealed class SnsRegistrationState extends Equatable {

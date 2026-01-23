@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 import '../bloc/sns_registration_bloc.dart';
 import '../bloc/sns_registration_event.dart';
 import '../bloc/sns_registration_state.dart';

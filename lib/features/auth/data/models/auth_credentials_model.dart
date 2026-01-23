@@ -1,4 +1,4 @@
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 
 class AuthCredentialsModel {
   final String accessToken;

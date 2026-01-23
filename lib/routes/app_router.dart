@@ -4,7 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../core/session/session_manager.dart';
 import '../di/injection_container.dart';
-import '../features/auth/domain/entities/auth_entities.dart';
+import '../core/wallet/repositories/wallet_repository.dart';
+import '../core/auth/entities/auth_entities.dart';
 import '../features/auth/presentation/bloc/login_bloc.dart';
 import '../features/auth/presentation/bloc/email_registration_bloc.dart';
 import '../features/auth/presentation/bloc/sns_registration_bloc.dart';
@@ -35,14 +36,19 @@ bool _isAuthProtectedPath(String path) {
   return _authProtectedPaths.any((p) => path.startsWith(p));
 }
 
-GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
+GoRouter createAppRouter(
+  SessionManager sessionManager,
+  WalletRepository walletRepository,
+) => GoRouter(
   initialLocation: '/',
   observers: [routeObserver],
   refreshListenable: sessionManager,
   redirect: (context, state) {
     final currentPath = state.matchedLocation;
     final isOnSplash = currentPath == '/';
+    final isOnLogin = currentPath == '/login';
     final isInitialized = sessionManager.isInitialized;
+    final isAuthenticated = sessionManager.status == AuthStatus.authenticated;
 
     // Stay on splash until initialized
     if (!isInitialized) {
@@ -50,7 +56,7 @@ GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
     }
 
     // After initialization, redirect from splash to appropriate route
-    if (isOnSplash && isInitialized) {
+    if (isOnSplash) {
       switch (sessionManager.initialRoute) {
         case InitialRoute.login:
           return '/login';
@@ -63,11 +69,14 @@ GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
       }
     }
 
-    // Redirect to login if session expired on protected routes
-    final isSessionExpired = sessionManager.status == AuthStatus.unauthenticated;
-    final isAuthProtected = _isAuthProtectedPath(currentPath);
+    // Redirect from login when authenticated
+    if (isOnLogin && isAuthenticated) {
+      return walletRepository.hasLocalWallets() ? '/main' : '/wallet/create';
+    }
 
-    if (isSessionExpired && isAuthProtected) {
+    // Redirect to login if session expired on protected routes
+    final isAuthProtected = _isAuthProtectedPath(currentPath);
+    if (!isAuthenticated && isAuthProtected) {
       return '/login';
     }
 

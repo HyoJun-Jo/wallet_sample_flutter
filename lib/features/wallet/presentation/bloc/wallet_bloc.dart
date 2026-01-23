@@ -1,5 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../domain/repositories/wallet_repository.dart';
+import '../../../../core/wallet/repositories/wallet_repository.dart';
 import '../../domain/usecases/create_wallet_usecase.dart';
 import 'wallet_event.dart';
 import 'wallet_state.dart';

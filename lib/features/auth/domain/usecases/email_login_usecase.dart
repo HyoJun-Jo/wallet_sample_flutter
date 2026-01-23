@@ -5,8 +5,8 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/auth_entities.dart';
-import '../repositories/auth_repository.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
+import '../../../../core/auth/repositories/auth_repository.dart';
 
 class EmailLoginUseCase implements UseCase<EmailLoginResult, EmailLoginParams> {
   final AuthRepository _repository;

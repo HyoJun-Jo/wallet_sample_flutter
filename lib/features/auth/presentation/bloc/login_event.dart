@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 
 /// Login event base class
 sealed class LoginEvent extends Equatable {

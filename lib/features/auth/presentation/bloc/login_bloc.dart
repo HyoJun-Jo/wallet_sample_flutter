@@ -2,7 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/session/session_manager.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 import '../../domain/usecases/email_login_usecase.dart';
 import '../../domain/usecases/refresh_token_usecase.dart';
 import '../../domain/usecases/sns_token_login_usecase.dart';
@@ -48,6 +48,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       (loginResult) {
         switch (loginResult) {
           case EmailLoginSuccess(:final credentials):
+            _sessionManager.onAuthenticated();
             emit(LoginAuthenticated(credentials: credentials));
           case EmailUserNotRegistered(:final email):
             emit(EmailRegistrationRequired(email: email));
@@ -71,6 +72,7 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
       (loginResult) {
         switch (loginResult) {
           case SnsLoginSuccess(:final credentials):
+            _sessionManager.onAuthenticated();
             emit(LoginAuthenticated(credentials: credentials));
           case SnsUserNotFound(
               :final email,

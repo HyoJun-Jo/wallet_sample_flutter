@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 import '../../domain/repositories/sns_auth_repository.dart';
 import '../datasources/sns_auth_datasource.dart';
 

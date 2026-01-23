@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../domain/entities/wallet.dart';
+import '../../../../core/wallet/entities/wallet.dart';
 
 /// Wallet state base class
 abstract class WalletState extends Equatable {

@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 import '../bloc/login_bloc.dart';
 import '../bloc/login_event.dart';
 import '../bloc/login_state.dart';
@@ -54,9 +54,7 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: BlocConsumer<LoginBloc, LoginState>(
           listener: (context, state) {
-            if (state is LoginAuthenticated) {
-              context.go('/wallet/create');
-            } else if (state is SnsRegistrationRequired) {
+            if (state is SnsRegistrationRequired) {
               context.go('/register/sns', extra: {
                 'email': state.email,
                 'sixcode': state.sixcode,

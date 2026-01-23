@@ -5,8 +5,8 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/secure_storage.dart';
 import '../../../../core/storage/local_storage.dart';
-import '../../domain/entities/wallet.dart';
-import '../../domain/repositories/wallet_repository.dart';
+import '../../../../core/wallet/entities/wallet.dart';
+import '../../../../core/wallet/repositories/wallet_repository.dart';
 import '../datasources/wallet_remote_datasource.dart';
 import '../models/wallet_model.dart';
 
@@ -30,6 +30,18 @@ class WalletRepositoryImpl implements WalletRepository {
         _secureStorage = secureStorage,
         _localStorage = localStorage,
         _secureChannelService = secureChannelService;
+
+  @override
+  bool hasLocalWallets() {
+    final walletsJson = _localStorage.getString(_walletsKey);
+    if (walletsJson == null || walletsJson.isEmpty) return false;
+    try {
+      final List<dynamic> walletsList = jsonDecode(walletsJson);
+      return walletsList.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<Either<Failure, WalletCreateResult>> createWallet({

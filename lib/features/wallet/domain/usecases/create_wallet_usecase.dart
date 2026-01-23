@@ -2,8 +2,8 @@ import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/wallet.dart';
-import '../repositories/wallet_repository.dart';
+import '../../../../core/wallet/entities/wallet.dart';
+import '../../../../core/wallet/repositories/wallet_repository.dart';
 
 /// Create wallet UseCase
 class CreateWalletUseCase implements UseCase<WalletCreateResult, CreateWalletParams> {

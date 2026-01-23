@@ -18,7 +18,7 @@ import '../core/chain/chain_repository.dart';
 // Auth
 import '../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../features/auth/data/repositories/auth_repository_impl.dart';
-import '../features/auth/domain/repositories/auth_repository.dart';
+import '../core/auth/repositories/auth_repository.dart';
 import '../features/auth/domain/usecases/email_login_usecase.dart';
 import '../features/auth/domain/usecases/sns_token_login_usecase.dart';
 import '../features/auth/domain/usecases/refresh_token_usecase.dart';
@@ -36,7 +36,7 @@ import '../features/auth/presentation/bloc/password_reset_bloc.dart';
 // Wallet
 import '../features/wallet/data/datasources/wallet_remote_datasource.dart';
 import '../features/wallet/data/repositories/wallet_repository_impl.dart';
-import '../features/wallet/domain/repositories/wallet_repository.dart';
+import '../core/wallet/repositories/wallet_repository.dart';
 import '../features/wallet/domain/usecases/create_wallet_usecase.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 
@@ -87,6 +87,11 @@ import '../features/history/domain/repositories/history_repository.dart';
 import '../features/history/domain/usecases/get_token_transactions_usecase.dart';
 import '../features/history/domain/usecases/get_nft_transactions_usecase.dart';
 import '../features/history/presentation/bloc/history_bloc.dart';
+
+// Settings
+import '../features/settings/domain/usecases/get_user_settings_usecase.dart';
+import '../features/settings/domain/usecases/logout_usecase.dart';
+import '../features/settings/presentation/bloc/settings_bloc.dart';
 
 final sl = GetIt.instance;
 
@@ -362,6 +367,20 @@ Future<void> init() async {
   sl.registerFactory(() => HistoryBloc(
         getTokenTransactionsUseCase: sl(),
         getNftTransactionsUseCase: sl(),
+      ));
+
+  // Settings
+  // UseCases
+  sl.registerLazySingleton(() => GetUserSettingsUseCase(
+        localStorage: sl(),
+        walletRepository: sl(),
+      ));
+  sl.registerLazySingleton(() => LogoutUseCase(sessionManager: sl()));
+
+  // BLoC
+  sl.registerFactory(() => SettingsBloc(
+        getUserSettingsUseCase: sl(),
+        logoutUseCase: sl(),
       ));
 
   await sl<LocalStorageService>().init();

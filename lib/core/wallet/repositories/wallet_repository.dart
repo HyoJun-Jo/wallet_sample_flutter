@@ -1,9 +1,12 @@
 import 'package:dartz/dartz.dart';
-import '../../../../core/errors/failures.dart';
+import '../../errors/failures.dart';
 import '../entities/wallet.dart';
 
 /// Wallet Repository interface
 abstract class WalletRepository {
+  /// Check if any wallets exist locally (synchronous)
+  bool hasLocalWallets();
+
   /// Create and register wallet
   /// Creates EVM multi-chain wallet with encrypted PIN
   Future<Either<Failure, WalletCreateResult>> createWallet({

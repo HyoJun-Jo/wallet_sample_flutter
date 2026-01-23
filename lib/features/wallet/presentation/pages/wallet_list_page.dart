@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../routes/app_router.dart';
-import '../../domain/entities/wallet.dart';
+import '../../../../core/wallet/entities/wallet.dart';
 import '../bloc/wallet_bloc.dart';
 import '../bloc/wallet_event.dart';
 import '../bloc/wallet_state.dart';

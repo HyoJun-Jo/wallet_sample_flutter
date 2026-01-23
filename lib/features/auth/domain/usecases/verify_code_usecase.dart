@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../repositories/auth_repository.dart';
+import '../../../../core/auth/repositories/auth_repository.dart';
 
 class VerifyCodeUseCase implements UseCase<void, VerifyCodeParams> {
   final AuthRepository _repository;

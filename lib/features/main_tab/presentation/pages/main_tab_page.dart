@@ -6,8 +6,10 @@ import '../../../browser/presentation/bloc/browser_bloc.dart';
 import '../../../browser/presentation/pages/web3_browser_page.dart';
 import '../../../token/presentation/bloc/token_bloc.dart';
 import '../../../token/presentation/pages/token_list_page.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../settings/presentation/bloc/settings_event.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
-import '../../../wallet/domain/repositories/wallet_repository.dart';
+import '../../../../core/wallet/repositories/wallet_repository.dart';
 
 class MainTabPage extends StatefulWidget {
   final String? walletAddress;
@@ -109,7 +111,11 @@ class _MainTabPageState extends State<MainTabPage> {
             child: Web3BrowserPage(walletAddress: _walletAddress),
           ),
           // Settings Tab
-          const SettingsPage(),
+          BlocProvider(
+            create: (_) => sl<SettingsBloc>()
+              ..add(const SettingsLoadRequested()),
+            child: const SettingsPage(),
+          ),
         ],
       ),
       bottomNavigationBar: NavigationBar(

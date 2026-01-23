@@ -5,8 +5,8 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
-import '../entities/auth_entities.dart';
-import '../repositories/auth_repository.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
+import '../../../../core/auth/repositories/auth_repository.dart';
 import '../repositories/sns_auth_repository.dart';
 
 class SnsTokenLoginUseCase

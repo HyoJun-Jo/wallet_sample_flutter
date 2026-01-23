@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import '../../domain/entities/wallet.dart';
+import '../../../../core/wallet/entities/wallet.dart';
 
 /// Wallet model for local storage
 class WalletModel extends Wallet {

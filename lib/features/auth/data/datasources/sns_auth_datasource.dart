@@ -8,7 +8,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../../core/constants/app_constants.dart';
-import '../../domain/entities/auth_entities.dart';
+import '../../../../core/auth/entities/auth_entities.dart';
 
 abstract class SnsAuthDataSource {
   Future<SnsAuthResult?> signInWithGoogle();
