@@ -33,9 +33,6 @@ import '../features/auth/presentation/bloc/sns_registration_bloc.dart';
 import '../features/auth/presentation/bloc/email_registration_bloc.dart';
 import '../features/auth/presentation/bloc/password_reset_bloc.dart';
 
-// Splash
-import '../features/splash/presentation/bloc/splash_bloc.dart';
-
 // Wallet
 import '../features/wallet/data/datasources/wallet_remote_datasource.dart';
 import '../features/wallet/data/repositories/wallet_repository_impl.dart';
@@ -232,12 +229,6 @@ Future<void> init() async {
   // BLoC
   sl.registerFactory(() => WalletBloc(
         createWalletUseCase: sl(),
-        walletRepository: sl(),
-      ));
-
-  sl.registerFactory(() => SplashBloc(
-        secureStorage: sl(),
-        localStorage: sl(),
         walletRepository: sl(),
       ));
 

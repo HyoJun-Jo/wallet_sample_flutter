@@ -12,8 +12,6 @@ import '../features/auth/presentation/pages/login_page.dart';
 import '../features/auth/presentation/pages/email_registration_page.dart';
 import '../features/auth/presentation/pages/password_reset_page.dart';
 import '../features/auth/presentation/pages/sns_registration_page.dart';
-import '../features/splash/presentation/bloc/splash_bloc.dart';
-import '../features/splash/presentation/pages/splash_page.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../features/wallet/presentation/pages/create_wallet_page.dart';
 import '../features/main_tab/presentation/pages/main_tab_page.dart';
@@ -25,6 +23,7 @@ import '../features/transfer/presentation/pages/send_token_page.dart';
 import '../features/transfer/presentation/pages/transfer_confirm_page.dart';
 import '../features/transfer/presentation/pages/transfer_complete_page.dart';
 import '../features/signing/presentation/bloc/signing_bloc.dart';
+import '../pages/splash/splash_page.dart';
 
 // Route observer for tracking navigation
 final routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -37,14 +36,37 @@ bool _isAuthProtectedPath(String path) {
 }
 
 GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
-  initialLocation: '/splash',
+  initialLocation: '/',
   observers: [routeObserver],
   refreshListenable: sessionManager,
   redirect: (context, state) {
-    final isSessionExpired = sessionManager.status == AuthStatus.unauthenticated;
-    final isAuthProtected = _isAuthProtectedPath(state.matchedLocation);
+    final currentPath = state.matchedLocation;
+    final isOnSplash = currentPath == '/';
+    final isInitialized = sessionManager.isInitialized;
+
+    // Stay on splash until initialized
+    if (!isInitialized) {
+      return isOnSplash ? null : '/';
+    }
+
+    // After initialization, redirect from splash to appropriate route
+    if (isOnSplash && isInitialized) {
+      switch (sessionManager.initialRoute) {
+        case InitialRoute.login:
+          return '/login';
+        case InitialRoute.walletCreate:
+          return '/wallet/create';
+        case InitialRoute.main:
+          return '/main';
+        case null:
+          return '/login';
+      }
+    }
 
     // Redirect to login if session expired on protected routes
+    final isSessionExpired = sessionManager.status == AuthStatus.unauthenticated;
+    final isAuthProtected = _isAuthProtectedPath(currentPath);
+
     if (isSessionExpired && isAuthProtected) {
       return '/login';
     }
@@ -54,11 +76,8 @@ GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
   routes: [
     // Splash screen (app entry point)
     GoRoute(
-      path: '/splash',
-      builder: (context, state) => BlocProvider(
-        create: (_) => sl<SplashBloc>(),
-        child: const SplashPage(),
-      ),
+      path: '/',
+      builder: (context, state) => const SplashPage(),
     ),
 
     // Login page
