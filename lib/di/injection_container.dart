@@ -49,11 +49,11 @@ import '../features/token/domain/usecases/get_all_tokens_usecase.dart';
 import '../features/token/presentation/bloc/token_bloc.dart';
 
 // Transfer
-import '../features/transfer/data/datasources/transfer_remote_datasource.dart';
-import '../features/transfer/data/repositories/transfer_repository_impl.dart';
-import '../features/transfer/domain/repositories/transfer_repository.dart';
-import '../features/transfer/domain/usecases/send_token_usecase.dart';
-import '../features/transfer/presentation/bloc/transfer_bloc.dart';
+import '../features/token/data/datasources/transfer_remote_datasource.dart';
+import '../features/token/data/repositories/transfer_repository_impl.dart';
+import '../features/token/domain/repositories/transfer_repository.dart';
+import '../features/token/domain/usecases/send_token_usecase.dart';
+import '../features/token/presentation/bloc/transfer_bloc.dart';
 
 // Signing
 import '../features/signing/data/datasources/signing_remote_datasource.dart';

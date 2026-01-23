@@ -18,11 +18,11 @@ import '../features/wallet/presentation/pages/create_wallet_page.dart';
 import '../pages/main/main_tab_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
-import '../features/transfer/domain/entities/transfer.dart';
-import '../features/transfer/presentation/bloc/transfer_bloc.dart';
-import '../features/transfer/presentation/pages/send_token_page.dart';
-import '../features/transfer/presentation/pages/transfer_confirm_page.dart';
-import '../features/transfer/presentation/pages/transfer_complete_page.dart';
+import '../features/token/domain/entities/transfer.dart';
+import '../features/token/presentation/bloc/transfer_bloc.dart';
+import '../features/token/presentation/pages/send_token_page.dart';
+import '../features/token/presentation/pages/transfer_confirm_page.dart';
+import '../features/token/presentation/pages/transfer_complete_page.dart';
 import '../features/signing/presentation/bloc/signing_bloc.dart';
 import '../pages/splash/splash_page.dart';
 

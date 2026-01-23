@@ -8,7 +8,7 @@ import '../../../../di/injection_container.dart';
 import '../../../signing/presentation/bloc/signing_bloc.dart';
 import '../../../signing/presentation/bloc/signing_event.dart';
 import '../../../signing/presentation/bloc/signing_state.dart';
-import '../../../token/domain/entities/token_info.dart';
+import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
 
 /// Transfer confirmation page - shows transaction details and handles signing

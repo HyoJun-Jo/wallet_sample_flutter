@@ -8,7 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
-import '../../../token/domain/entities/token_info.dart';
+import '../../domain/entities/token_info.dart';
 import '../../domain/entities/transfer.dart';
 
 /// Transfer complete page - shows transaction result
