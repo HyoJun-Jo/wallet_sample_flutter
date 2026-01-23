@@ -68,86 +68,24 @@ class EstimateGasResult extends Equatable {
 
 /// Send transaction params
 class SendTransactionParams extends Equatable {
+  final String signedSerializeTx;
   final String network;
-  final String signedTx;
 
   const SendTransactionParams({
+    required this.signedSerializeTx,
     required this.network,
-    required this.signedTx,
   });
 
   @override
-  List<Object?> get props => [network, signedTx];
+  List<Object?> get props => [signedSerializeTx, network];
 }
 
 /// Transaction result
 class TransactionResult extends Equatable {
-  final String txHash;
+  final String transactionHash;
 
-  const TransactionResult({required this.txHash});
-
-  @override
-  List<Object?> get props => [txHash];
-}
-
-/// Sign type for transaction signing
-enum SignType { legacy, eip1559, personal }
-
-/// Sign transaction params (EIP-1559)
-class SignTransactionParams extends Equatable {
-  final String network;
-  final String from;
-  final String to;
-  final String value;
-  final String data;
-  final String nonce;
-  final String gasLimit;
-  final String maxPriorityFeePerGas;
-  final String maxFeePerGas;
-  final SignType type;
-
-  const SignTransactionParams({
-    required this.network,
-    required this.from,
-    required this.to,
-    required this.value,
-    required this.data,
-    required this.nonce,
-    required this.gasLimit,
-    required this.maxPriorityFeePerGas,
-    required this.maxFeePerGas,
-    this.type = SignType.eip1559,
-  });
+  const TransactionResult({required this.transactionHash});
 
   @override
-  List<Object?> get props => [
-        network,
-        from,
-        to,
-        value,
-        data,
-        nonce,
-        gasLimit,
-        maxPriorityFeePerGas,
-        maxFeePerGas,
-        type,
-      ];
-}
-
-/// Signed transaction result
-class SignedTransaction extends Equatable {
-  final String signature;
-  final String? serializedTx;
-  final String? rawTx;
-  final String? txHash;
-
-  const SignedTransaction({
-    required this.signature,
-    this.serializedTx,
-    this.rawTx,
-    this.txHash,
-  });
-
-  @override
-  List<Object?> get props => [signature, serializedTx, rawTx, txHash];
+  List<Object?> get props => [transactionHash];
 }

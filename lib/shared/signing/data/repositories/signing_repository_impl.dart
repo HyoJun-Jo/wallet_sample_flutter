@@ -31,7 +31,7 @@ class SigningRepositoryImpl implements SigningRepository {
   }
 
   @override
-  Future<Either<Failure, SignResult>> personalSign({
+  Future<Either<Failure, PersonalSignResult>> personalSign({
     required PersonalSignParams params,
   }) async {
     try {
@@ -40,7 +40,7 @@ class SigningRepositoryImpl implements SigningRepository {
         params: params,
         credentials: credentials,
       );
-      return Right(result);
+      return Right(result.toPersonalSignResult());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, code: e.statusCode));
     } on SigningException catch (e) {
@@ -51,7 +51,7 @@ class SigningRepositoryImpl implements SigningRepository {
   }
 
   @override
-  Future<Either<Failure, SignResult>> signTypedData({
+  Future<Either<Failure, SignTypedDataResult>> signTypedData({
     required SignTypedDataParams params,
   }) async {
     try {
@@ -60,7 +60,7 @@ class SigningRepositoryImpl implements SigningRepository {
         params: params,
         credentials: credentials,
       );
-      return Right(result);
+      return Right(result.toSignTypedDataResult());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, code: e.statusCode));
     } on SigningException catch (e) {
@@ -71,7 +71,7 @@ class SigningRepositoryImpl implements SigningRepository {
   }
 
   @override
-  Future<Either<Failure, SignResult>> signHash({
+  Future<Either<Failure, SignHashResult>> signHash({
     required SignHashParams params,
   }) async {
     try {
@@ -80,7 +80,27 @@ class SigningRepositoryImpl implements SigningRepository {
         params: params,
         credentials: credentials,
       );
-      return Right(result);
+      return Right(result.toSignHashResult());
+    } on ServerException catch (e) {
+      return Left(ServerFailure(message: e.message, code: e.statusCode));
+    } on SigningException catch (e) {
+      return Left(SigningFailure(message: e.message));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, SignedTransaction>> signTransaction({
+    required SignTransactionParams params,
+  }) async {
+    try {
+      final credentials = await _getCredentials();
+      final result = await _remoteDataSource.signTransaction(
+        params: params,
+        credentials: credentials,
+      );
+      return Right(result.toSignedTransaction());
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, code: e.statusCode));
     } on SigningException catch (e) {

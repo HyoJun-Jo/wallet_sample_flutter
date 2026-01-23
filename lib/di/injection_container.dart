@@ -259,12 +259,12 @@ Future<void> init() async {
         getAllTokensUseCase: sl(),
       ));
 
-  // Repository (uses TokenRemoteDataSource)
+  // Repository (uses TokenRemoteDataSource + TransactionRepository)
   sl.registerLazySingleton<TransferRepository>(
     () => TransferRepositoryImpl(
       remoteDataSource: sl<TokenRemoteDataSource>(),
       chainService: sl(),
-      apiClient: sl(),
+      transactionRepository: sl<TransactionRepository>(),
     ),
   );
 
@@ -304,7 +304,6 @@ Future<void> init() async {
   sl.registerLazySingleton<TransactionRemoteDataSource>(
     () => TransactionRemoteDataSourceImpl(
       apiClient: sl(),
-      secureChannelService: sl(),
     ),
   );
 
@@ -312,7 +311,6 @@ Future<void> init() async {
   sl.registerLazySingleton<TransactionRepository>(
     () => TransactionRepositoryImpl(
       remoteDataSource: sl(),
-      secureStorage: sl(),
     ),
   );
 

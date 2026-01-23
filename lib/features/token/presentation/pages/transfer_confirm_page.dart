@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/chain/chain_repository.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../di/injection_container.dart';
+import '../../../../shared/signing/domain/entities/signing_entities.dart';
+import '../../../../shared/signing/domain/repositories/signing_repository.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/token_info.dart';
@@ -27,6 +29,7 @@ class TransferConfirmPage extends StatefulWidget {
 }
 
 class _TransferConfirmPageState extends State<TransferConfirmPage> {
+  final SigningRepository _signingRepository = sl<SigningRepository>();
   final TransactionRepository _transactionRepository = sl<TransactionRepository>();
 
   bool _isLoading = false;
@@ -39,8 +42,8 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
     });
 
     try {
-      // 1. Sign transaction
-      final signResult = await _transactionRepository.signTransaction(
+      // 1. Sign transaction using SigningRepository
+      final signResult = await _signingRepository.signTransaction(
         params: SignTransactionParams(
           network: widget.transferData.network,
           from: widget.transferData.from,
@@ -63,10 +66,10 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
           });
           return null;
         },
-        (result) => result.serializedTx ?? result.rawTx,
+        (result) => result.serializedTx.isNotEmpty ? result.serializedTx : result.rawTx,
       );
 
-      if (signedTx == null) {
+      if (signedTx == null || signedTx.isEmpty) {
         if (_error == null) {
           setState(() {
             _error = 'Signing completed but no serializedTx returned';
@@ -80,7 +83,7 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
       final sendResult = await _transactionRepository.sendTransaction(
         params: SendTransactionParams(
           network: widget.transferData.network,
-          signedTx: signedTx,
+          signedSerializeTx: signedTx,
         ),
       );
 
@@ -109,7 +112,7 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
             context.go('/transfer/complete', extra: {
               'transferData': widget.transferData,
               'result': TransferResult(
-                txHash: result.txHash,
+                txHash: result.transactionHash,
                 status: TransferStatus.submitted,
               ),
               'walletAddress': widget.walletAddress,

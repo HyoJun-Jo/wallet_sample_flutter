@@ -2,33 +2,16 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/storage/secure_storage.dart';
-import '../../../../features/wallet/data/models/wallet_model.dart';
 import '../../domain/entities/transaction_entities.dart';
 import '../../domain/repositories/transaction_repository.dart';
 import '../datasources/transaction_remote_datasource.dart';
 
 class TransactionRepositoryImpl implements TransactionRepository {
   final TransactionRemoteDataSource _remoteDataSource;
-  final SecureStorageService _secureStorage;
 
   TransactionRepositoryImpl({
     required TransactionRemoteDataSource remoteDataSource,
-    required SecureStorageService secureStorage,
-  })  : _remoteDataSource = remoteDataSource,
-        _secureStorage = secureStorage;
-
-  /// Get saved wallet credentials
-  Future<WalletCreateResultModel> _getCredentials() async {
-    final jsonString = await _secureStorage.read(
-      key: SecureStorageKeys.walletCredentials,
-    );
-    final credentials = WalletCreateResultModel.fromJsonString(jsonString);
-    if (credentials == null) {
-      throw ServerException(message: 'Wallet credentials not found');
-    }
-    return credentials;
-  }
+  }) : _remoteDataSource = remoteDataSource;
 
   @override
   Future<Either<Failure, String>> getNonce({
@@ -77,30 +60,12 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<Either<Failure, SignedTransaction>> signTransaction({
-    required SignTransactionParams params,
-  }) async {
-    try {
-      final credentials = await _getCredentials();
-      final result = await _remoteDataSource.signTransaction(
-        params: params,
-        credentials: credentials,
-      );
-      return Right(result);
-    } on ServerException catch (e) {
-      return Left(ServerFailure(message: e.message, code: e.statusCode));
-    } catch (e) {
-      return Left(ServerFailure(message: e.toString()));
-    }
-  }
-
-  @override
   Future<Either<Failure, TransactionResult>> sendTransaction({
     required SendTransactionParams params,
   }) async {
     try {
       final txHash = await _remoteDataSource.sendTransaction(params: params);
-      return Right(TransactionResult(txHash: txHash));
+      return Right(TransactionResult(transactionHash: txHash));
     } on ServerException catch (e) {
       return Left(ServerFailure(message: e.message, code: e.statusCode));
     } catch (e) {

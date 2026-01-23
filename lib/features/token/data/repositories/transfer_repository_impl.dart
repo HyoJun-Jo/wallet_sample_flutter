@@ -1,13 +1,11 @@
 import 'dart:developer';
 
 import 'package:dartz/dartz.dart';
-import 'package:dio/dio.dart';
-import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
-import '../../../../core/utils/wei_utils.dart';
-import '../../../../core/network/api_client.dart';
 import '../../../../core/chain/chain_repository.dart';
+import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
+import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../domain/entities/transfer.dart';
 import '../../domain/repositories/transfer_repository.dart';
 import '../datasources/token_remote_datasource.dart';
@@ -16,15 +14,15 @@ import '../models/transfer_model.dart';
 class TransferRepositoryImpl implements TransferRepository {
   final TokenRemoteDataSource _remoteDataSource;
   final ChainRepository _chainRepository;
-  final ApiClient _apiClient;
+  final TransactionRepository _transactionRepository;
 
   TransferRepositoryImpl({
     required TokenRemoteDataSource remoteDataSource,
     required ChainRepository chainService,
-    required ApiClient apiClient,
+    required TransactionRepository transactionRepository,
   })  : _remoteDataSource = remoteDataSource,
         _chainRepository = chainService,
-        _apiClient = apiClient;
+        _transactionRepository = transactionRepository;
 
   @override
   Future<Either<Failure, TransferData>> createTransferData({
@@ -71,22 +69,43 @@ class TransferRepositoryImpl implements TransferRepository {
         data = abiData;
       }
 
-      // 3. Get gas fees (EIP-1559), nonce, and gasLimit from WaaS API
+      // 3. Get gas fees (EIP-1559), nonce, and gasLimit via TransactionRepository
       final results = await Future.wait([
-        _getSuggestedGasFees(request.network),
-        _getNonce(request.fromAddress, request.network),
-        _estimateGas(
-          network: request.network,
-          from: request.fromAddress,
-          to: toAddress,
-          value: value,
-          data: data,
+        _transactionRepository.getGasFees(network: request.network),
+        _transactionRepository.getNonce(address: request.fromAddress, network: request.network),
+        _transactionRepository.estimateGas(
+          params: EstimateGasParams(
+            network: request.network,
+            from: request.fromAddress,
+            to: toAddress,
+            value: value,
+            data: data,
+          ),
         ),
       ]);
 
-      final gasFees = results[0] as Map<String, String>;
-      final nonce = results[1] as String;
-      final gasLimit = results[2] as String;
+      final gasFeesResult = results[0] as Either<Failure, GasFees>;
+      final nonceResult = results[1] as Either<Failure, String>;
+      final gasLimitResult = results[2] as Either<Failure, EstimateGasResult>;
+
+      // 결과 추출 (실패 시 기본값 사용)
+      final gasFees = gasFeesResult.fold(
+        (failure) => null,
+        (fees) => fees,
+      );
+      final nonce = nonceResult.fold(
+        (failure) => '0x0',
+        (n) => n,
+      );
+      final gasLimit = gasLimitResult.fold(
+        (failure) => data == '0x' ? '0x5208' : '0x15f90',
+        (result) => result.gasLimit,
+      );
+
+      // gasFees 실패 시 기본값
+      final maxFeePerGas = gasFees?.medium.maxFeePerGas ?? '0x6fc23ac00';
+      final maxPriorityFeePerGas = gasFees?.medium.maxPriorityFeePerGas ?? '0x59682f00';
+
       log('gasFees: $gasFees, nonce: $nonce, gasLimit: $gasLimit', name: 'TransferRepository');
 
       final transferData = TransferDataModel(
@@ -95,8 +114,8 @@ class TransferRepositoryImpl implements TransferRepository {
         data: data,
         value: value,
         gasLimit: gasLimit,
-        maxFeePerGas: gasFees['maxFeePerGas']!,
-        maxPriorityFeePerGas: gasFees['maxPriorityFeePerGas']!,
+        maxFeePerGas: maxFeePerGas,
+        maxPriorityFeePerGas: maxPriorityFeePerGas,
         nonce: nonce,
         network: request.network,
       );
@@ -111,105 +130,6 @@ class TransferRepositoryImpl implements TransferRepository {
       log('Transfer error: $e', name: 'TransferRepository');
       return Left(ServerFailure(message: e.toString()));
     }
-  }
-
-  /// Get suggested gas fees from WaaS API (EIP-1559)
-  Future<Map<String, String>> _getSuggestedGasFees(String network) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.suggestGasFees,
-        queryParameters: {'network': network},
-      );
-
-      if (response.statusCode == 200) {
-        final data = response.data;
-        // API returns { "medium": { "suggestedMaxFeePerGas": "...", "suggestedMaxPriorityFeePerGas": "..." } }
-        final medium = data['medium'] as Map<String, dynamic>? ?? {};
-
-        final maxFeePerGas = medium['suggestedMaxFeePerGas']?.toString() ?? '0';
-        final maxPriorityFeePerGas = medium['suggestedMaxPriorityFeePerGas']?.toString() ?? '0';
-
-        return {
-          'maxFeePerGas': WeiUtils.gweiToWeiHex(maxFeePerGas),
-          'maxPriorityFeePerGas': WeiUtils.gweiToWeiHex(maxPriorityFeePerGas),
-        };
-      }
-    } catch (e) {
-      log('Failed to get suggested gas fees: $e', name: 'TransferRepository');
-    }
-    // Default: 30 gwei maxFee, 1.5 gwei priority
-    return {
-      'maxFeePerGas': '0x6fc23ac00', // 30 gwei
-      'maxPriorityFeePerGas': '0x59682f00', // 1.5 gwei
-    };
-  }
-
-  /// Get nonce from WaaS API
-  Future<String> _getNonce(String address, String network) async {
-    final response = await _apiClient.get(
-      ApiEndpoints.nonce,
-      queryParameters: {
-        'address': address,
-        'network': network,
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = response.data;
-      // API returns { "result": "0x..." } or { "nonce": "0x..." }
-      final nonceValue = data['result']?.toString() ??
-                         data['nonce']?.toString() ??
-                         '0';
-      // Convert to hex if needed
-      if (nonceValue.startsWith('0x')) {
-        return nonceValue;
-      }
-      final nonce = int.tryParse(nonceValue) ?? 0;
-      return '0x${nonce.toRadixString(16)}';
-    }
-    throw ServerException(message: 'Failed to get nonce');
-  }
-
-  /// Estimate gas from WaaS API (EIP-1559)
-  Future<String> _estimateGas({
-    required String network,
-    required String from,
-    required String to,
-    required String value,
-    required String data,
-  }) async {
-    try {
-      final response = await _apiClient.post(
-        ApiEndpoints.estimateEip1559,
-        data: {
-          'network': network,
-          'from': from,
-          'to': to,
-          'value': value,
-          'data': data,
-        },
-        options: Options(contentType: Headers.formUrlEncodedContentType),
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = response.data;
-        // API returns { "result": "0x..." } or { "gas": "..." }
-        final gasValue = responseData['result']?.toString() ??
-                         responseData['gas']?.toString() ??
-                         responseData['estimatedGas']?.toString();
-        if (gasValue != null) {
-          if (gasValue.startsWith('0x')) {
-            return gasValue;
-          }
-          final gas = int.tryParse(gasValue) ?? 21000;
-          return '0x${gas.toRadixString(16)}';
-        }
-      }
-    } catch (e) {
-      log('Gas estimation failed: $e, using default', name: 'TransferRepository');
-    }
-    // Default: 21000 for native, 90000 for contract calls
-    return data == '0x' ? '0x5208' : '0x15f90';
   }
 
   /// Convert amount string to wei (hex string)

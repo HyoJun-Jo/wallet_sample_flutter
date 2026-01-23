@@ -15,6 +15,7 @@ import '../../../../di/injection_container.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
 import '../../../../shared/signing/domain/entities/signing_entities.dart';
+import '../../../../shared/signing/domain/repositories/signing_repository.dart';
 import '../../../../shared/signing/domain/usecases/sign_typed_data_usecase.dart';
 import '../../../../shared/signing/domain/usecases/sign_usecase.dart' show PersonalSignUseCase;
 import '../bloc/browser_bloc.dart';
@@ -54,7 +55,10 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
   final SignTypedDataUseCase _signTypedDataUseCase = sl<SignTypedDataUseCase>();
   final PersonalSignUseCase _personalSignUseCase = sl<PersonalSignUseCase>();
 
-  // Transaction Repository (for nonce, gas, signTransaction, sendTransaction)
+  // Signing Repository (for signTransaction)
+  final SigningRepository _signingRepository = sl<SigningRepository>();
+
+  // Transaction Repository (for nonce, gas, sendTransaction)
   final TransactionRepository _transactionRepository = sl<TransactionRepository>();
 
   @override
@@ -190,8 +194,6 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
     final result = await _personalSignUseCase(
       PersonalSignParams(
-        msgType: MessageType.message,
-        accountId: widget.walletAddress,
         network: _currentNetwork.value,
         message: message,
       ),
@@ -199,7 +201,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
     return result.fold(
       (failure) => throw Exception(failure.message),
-      (signResult) => signResult.signature,
+      (signResult) => signResult.serializedTx,
     );
   }
 
@@ -224,7 +226,6 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
     final result = await _signTypedDataUseCase(
       SignTypedDataParams(
-        accountId: widget.walletAddress,
         network: _currentNetwork.value,
         messageJson: typedData,
       ),
@@ -232,7 +233,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
 
     return result.fold(
       (failure) => throw Exception(failure.message),
-      (signResult) => signResult.signature,
+      (signResult) => signResult.serializedTx,
     );
   }
 
@@ -316,12 +317,12 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
       (g) => g,
     );
 
-    // 4. Sign EIP-1559 transaction
+    // 4. Sign EIP-1559 transaction using SigningRepository
     // Use medium gas fees (already in hex wei format from repository)
     final maxPriorityFeeWei = gasFees.medium.maxPriorityFeePerGas;
     final maxFeeWei = gasFees.medium.maxFeePerGas;
 
-    final signResult = await _transactionRepository.signTransaction(
+    final signResult = await _signingRepository.signTransaction(
       params: SignTransactionParams(
         network: network,
         from: from,
@@ -342,16 +343,15 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
         throw Exception(failure.message);
       },
       (result) async {
-        final serializedTx = result.serializedTx;
-        if (serializedTx == null || serializedTx.isEmpty) {
-          return result.txHash ?? result.signature;
+        if (result.serializedTx.isEmpty) {
+          throw Exception('Sign transaction failed: empty serializedTx');
         }
 
         // 5. Send signed transaction
         final sendResult = await _transactionRepository.sendTransaction(
           params: SendTransactionParams(
             network: network,
-            signedTx: serializedTx,
+            signedSerializeTx: result.serializedTx,
           ),
         );
 
@@ -360,7 +360,7 @@ class _Web3BrowserPageState extends State<Web3BrowserPage> {
             log('Send failed: ${failure.message}', name: 'Web3Browser');
             throw Exception(failure.message);
           },
-          (txResult) => txResult.txHash,
+          (txResult) => txResult.transactionHash,
         );
       },
     );

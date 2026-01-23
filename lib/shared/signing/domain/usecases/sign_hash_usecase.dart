@@ -5,13 +5,13 @@ import '../entities/signing_entities.dart';
 import '../repositories/signing_repository.dart';
 
 /// Sign Hash UseCase
-class SignHashUseCase implements UseCase<SignResult, SignHashParams> {
+class SignHashUseCase implements UseCase<SignHashResult, SignHashParams> {
   final SigningRepository _repository;
 
   SignHashUseCase(this._repository);
 
   @override
-  Future<Either<Failure, SignResult>> call(SignHashParams params) {
+  Future<Either<Failure, SignHashResult>> call(SignHashParams params) {
     return _repository.signHash(params: params);
   }
 }

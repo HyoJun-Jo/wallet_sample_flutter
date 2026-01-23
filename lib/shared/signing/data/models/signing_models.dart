@@ -1,32 +1,47 @@
 import '../../domain/entities/signing_entities.dart';
 
-/// Sign result model
-class SignResultModel extends SignResult {
-  const SignResultModel({
-    required super.signature,
-    super.txHash,
-    super.serializedTx,
-    super.rawTx,
+/// API 응답 DTO (모든 서명 API가 동일한 구조 반환)
+class SignResponseModel {
+  final String serializedTx;
+  final String rawTx;
+
+  const SignResponseModel({
+    required this.serializedTx,
+    required this.rawTx,
   });
 
-  factory SignResultModel.fromJson(Map<String, dynamic> json) {
-    return SignResultModel(
-      // For typed-data signing, signature is in serializedTx
-      signature: json['signature'] as String? ??
-                 json['serializedTx'] as String? ??
-                 json['rawTx'] as String? ?? '',
-      txHash: json['tx_hash'] as String? ?? json['txHash'] as String?,
-      serializedTx: json['serialized_tx'] as String? ?? json['serializedTx'] as String?,
-      rawTx: json['raw_tx'] as String? ?? json['rawTx'] as String?,
+  factory SignResponseModel.fromJson(Map<String, dynamic> json) {
+    return SignResponseModel(
+      serializedTx: json['serializedTx']?.toString() ?? '',
+      rawTx: json['rawTx']?.toString() ?? '',
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'signature': signature,
-      'tx_hash': txHash,
-      'serialized_tx': serializedTx,
-      'raw_tx': rawTx,
-    };
+  PersonalSignResult toPersonalSignResult() {
+    return PersonalSignResult(
+      serializedTx: serializedTx,
+      rawTx: rawTx,
+    );
+  }
+
+  SignTypedDataResult toSignTypedDataResult() {
+    return SignTypedDataResult(
+      serializedTx: serializedTx,
+      rawTx: rawTx,
+    );
+  }
+
+  SignedTransaction toSignedTransaction() {
+    return SignedTransaction(
+      serializedTx: serializedTx,
+      rawTx: rawTx,
+    );
+  }
+
+  SignHashResult toSignHashResult() {
+    return SignHashResult(
+      serializedTx: serializedTx,
+      rawTx: rawTx,
+    );
   }
 }

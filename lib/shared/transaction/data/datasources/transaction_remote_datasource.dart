@@ -3,11 +3,10 @@ import 'dart:developer' as developer;
 import 'package:dio/dio.dart';
 
 import '../../../../core/constants/api_endpoints.dart';
-import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../features/wallet/data/models/wallet_model.dart';
 import '../../domain/entities/transaction_entities.dart';
+import '../models/transaction_models.dart';
 
 /// Transaction Remote DataSource interface
 abstract class TransactionRemoteDataSource {
@@ -27,12 +26,6 @@ abstract class TransactionRemoteDataSource {
     required EstimateGasParams params,
   });
 
-  /// Sign transaction (EIP-1559)
-  Future<SignedTransaction> signTransaction({
-    required SignTransactionParams params,
-    required WalletCreateResultModel credentials,
-  });
-
   /// Send signed transaction
   Future<String> sendTransaction({
     required SendTransactionParams params,
@@ -42,13 +35,10 @@ abstract class TransactionRemoteDataSource {
 /// Transaction Remote DataSource implementation
 class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   final ApiClient _apiClient;
-  final SecureChannelService _secureChannelService;
 
   TransactionRemoteDataSourceImpl({
     required ApiClient apiClient,
-    required SecureChannelService secureChannelService,
-  })  : _apiClient = apiClient,
-        _secureChannelService = secureChannelService;
+  }) : _apiClient = apiClient;
 
   @override
   Future<String> getNonce({
@@ -104,21 +94,8 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data;
-
-        // Parse low, medium, high fee options
-        final lowData = data['low'] as Map<String, dynamic>? ?? {};
-        final mediumData = data['medium'] as Map<String, dynamic>? ?? {};
-        final highData = data['high'] as Map<String, dynamic>? ?? {};
-        final baseFee = data['estimatedBaseFee']?.toString() ?? '0';
-
-        return GasFees(
-          low: _parseGasFeeDetail(lowData),
-          medium: _parseGasFeeDetail(mediumData),
-          high: _parseGasFeeDetail(highData),
-          baseFee: baseFee,
-          network: network,
-        );
+        final model = GasFeesModel.fromJson(response.data as Map<String, dynamic>);
+        return model.toEntity(network);
       }
 
       throw ServerException(
@@ -128,28 +105,6 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
     } catch (e) {
       if (e is ServerException) rethrow;
       throw ServerException(message: e.toString());
-    }
-  }
-
-  GasFeeDetail _parseGasFeeDetail(Map<String, dynamic> data) {
-    final maxFee = data['suggestedMaxFeePerGas']?.toString() ?? '0';
-    final maxPriority = data['suggestedMaxPriorityFeePerGas']?.toString() ?? '0';
-    final time = data['minWaitTimeEstimate'] as int?;
-
-    return GasFeeDetail(
-      maxFeePerGas: _gweiToWeiHex(maxFee),
-      maxPriorityFeePerGas: _gweiToWeiHex(maxPriority),
-      estimatedTime: time,
-    );
-  }
-
-  String _gweiToWeiHex(String gweiStr) {
-    try {
-      final gwei = double.tryParse(gweiStr) ?? 0;
-      final wei = BigInt.from(gwei * 1e9);
-      return '0x${wei.toRadixString(16)}';
-    } catch (_) {
-      return '0x0';
     }
   }
 
@@ -199,87 +154,6 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
   }
 
   @override
-  Future<SignedTransaction> signTransaction({
-    required SignTransactionParams params,
-    required WalletCreateResultModel credentials,
-  }) async {
-    try {
-      // Get SecureChannel and encrypt credentials
-      final channel = await _secureChannelService.getOrCreateChannel();
-      final encryptedPassword = _secureChannelService.encryptWithChannel(
-        credentials.encDevicePassword,
-        channel,
-      );
-      final encryptedPvencstr = _secureChannelService.encryptWithChannel(
-        credentials.pvencstr,
-        channel,
-      );
-      final encryptedWid = _secureChannelService.encryptWithChannel(
-        credentials.wid.toString(),
-        channel,
-      );
-
-      final response = await _apiClient.post(
-        ApiEndpoints.sign,
-        data: {
-          'network': params.network,
-          // Wallet credentials (encrypted with SecureChannel)
-          'encryptDevicePassword': encryptedPassword,
-          'pvencstr': encryptedPvencstr,
-          'uid': credentials.uid,
-          'wid': encryptedWid,
-          'sid': credentials.sid,
-          // Transaction params
-          'to': params.to,
-          'from': params.from,
-          'value': params.value,
-          'data': params.data,
-          'nonce': params.nonce,
-          'gasLimit': params.gasLimit,
-          'maxPriorityFeePerGas': params.maxPriorityFeePerGas,
-          'maxFeePerGas': params.maxFeePerGas,
-          'type': _signTypeToString(params.type),
-        },
-        options: Options(
-          contentType: Headers.formUrlEncodedContentType,
-          headers: {
-            'Secure-Channel': channel.channelId,
-          },
-        ),
-      );
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data;
-        return SignedTransaction(
-          signature: data['signature']?.toString() ?? '',
-          serializedTx: data['serializedTx']?.toString(),
-          rawTx: data['rawTx']?.toString(),
-          txHash: data['txHash']?.toString(),
-        );
-      }
-
-      throw ServerException(
-        message: 'Failed to sign transaction',
-        statusCode: response.statusCode,
-      );
-    } catch (e) {
-      if (e is ServerException) rethrow;
-      throw ServerException(message: e.toString());
-    }
-  }
-
-  String _signTypeToString(SignType type) {
-    switch (type) {
-      case SignType.legacy:
-        return 'LEGACY';
-      case SignType.eip1559:
-        return 'EIP1559';
-      case SignType.personal:
-        return 'PERSONAL';
-    }
-  }
-
-  @override
   Future<String> sendTransaction({
     required SendTransactionParams params,
   }) async {
@@ -288,7 +162,7 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
         ApiEndpoints.sendTransaction,
         data: {
           'network': params.network,
-          'signedSerializeTx': params.signedTx,
+          'signedSerializeTx': params.signedSerializeTx,
         },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
@@ -296,11 +170,9 @@ class TransactionRemoteDataSourceImpl implements TransactionRemoteDataSource {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = response.data;
-        developer.log('[TransactionDataSource] sendTransaction response: $data', name: 'TransactionDataSource');
-        return data['result']?.toString() ??
-               data['hash']?.toString() ??
-               data['txHash']?.toString() ?? '';
+        developer.log('[TransactionDataSource] sendTransaction response: ${response.data}', name: 'TransactionDataSource');
+        final model = TransactionResultModel.fromJson(response.data as Map<String, dynamic>);
+        return model.result;
       }
 
       throw ServerException(

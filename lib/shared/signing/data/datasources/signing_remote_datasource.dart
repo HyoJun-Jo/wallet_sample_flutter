@@ -13,20 +13,26 @@ import '../models/signing_models.dart';
 /// Signing Remote DataSource interface
 abstract class SigningRemoteDataSource {
   /// Personal sign
-  Future<SignResultModel> personalSign({
+  Future<SignResponseModel> personalSign({
     required PersonalSignParams params,
     required WalletCreateResultModel credentials,
   });
 
   /// Sign typed data (EIP-712)
-  Future<SignResultModel> signTypedData({
+  Future<SignResponseModel> signTypedData({
     required SignTypedDataParams params,
     required WalletCreateResultModel credentials,
   });
 
   /// Sign hash
-  Future<SignResultModel> signHash({
+  Future<SignResponseModel> signHash({
     required SignHashParams params,
+    required WalletCreateResultModel credentials,
+  });
+
+  /// Sign transaction
+  Future<SignResponseModel> signTransaction({
+    required SignTransactionParams params,
     required WalletCreateResultModel credentials,
   });
 }
@@ -43,12 +49,11 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
         _secureChannelService = secureChannelService;
 
   @override
-  Future<SignResultModel> personalSign({
+  Future<SignResponseModel> personalSign({
     required PersonalSignParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
-      // Get SecureChannel and encrypt credentials
       final channel = await _secureChannelService.getOrCreateChannel();
       final encryptedPassword = _secureChannelService.encryptWithChannel(
         credentials.encDevicePassword,
@@ -66,12 +71,9 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       final response = await _apiClient.post(
         ApiEndpoints.sign,
         data: {
-          'msg': params.message,
           'network': params.network,
-          'account_id': params.accountId,
-          'msg_type': _msgTypeToString(params.msgType),
-          'language': params.language,
-          // Wallet credentials (encrypted with SecureChannel)
+          'message': params.message,
+          'type': 'PERSONAL',
           'wid': encryptedWid,
           'uid': credentials.uid,
           'sid': credentials.sid,
@@ -87,7 +89,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return SignResultModel.fromJson(response.data);
+        return SignResponseModel.fromJson(response.data);
       }
 
       throw ServerException(
@@ -101,12 +103,11 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   }
 
   @override
-  Future<SignResultModel> signTypedData({
+  Future<SignResponseModel> signTypedData({
     required SignTypedDataParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
-      // Get SecureChannel and encrypt credentials
       final channel = await _secureChannelService.getOrCreateChannel();
       final encryptedPassword = _secureChannelService.encryptWithChannel(
         credentials.encDevicePassword,
@@ -121,27 +122,18 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
         channel,
       );
 
-      final requestData = {
-        'network': params.network,
-        'messageJson': params.messageJson,
-        'version': 'v4', // EIP-712 version (v3 or v4)
-        // Wallet credentials (encrypted with SecureChannel)
-        'wid': encryptedWid,
-        'uid': credentials.uid,
-        'sid': credentials.sid,
-        'pvencstr': encryptedPvencstr,
-        'encryptDevicePassword': encryptedPassword,
-      };
-
-      developer.log('[SigningDataSource] signTypedData request:', name: 'SigningDataSource');
-      developer.log('  network: ${params.network}', name: 'SigningDataSource');
-      developer.log('  version: v4', name: 'SigningDataSource');
-      developer.log('  messageJson length: ${params.messageJson.length}', name: 'SigningDataSource');
-      developer.log('  messageJson (first 200): ${params.messageJson.substring(0, params.messageJson.length > 200 ? 200 : params.messageJson.length)}', name: 'SigningDataSource');
-
       final response = await _apiClient.post(
         ApiEndpoints.signTypedData,
-        data: requestData,
+        data: {
+          'network': params.network,
+          'messageJson': params.messageJson,
+          'version': params.version,
+          'wid': encryptedWid,
+          'uid': credentials.uid,
+          'sid': credentials.sid,
+          'pvencstr': encryptedPvencstr,
+          'encryptDevicePassword': encryptedPassword,
+        },
         options: Options(
           contentType: Headers.formUrlEncodedContentType,
           headers: {
@@ -153,12 +145,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       developer.log('[SigningDataSource] signTypedData response: ${response.data}', name: 'SigningDataSource');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final result = SignResultModel.fromJson(response.data);
-        developer.log('[SigningDataSource] signTypedData parsed:', name: 'SigningDataSource');
-        developer.log('  signature: ${result.signature}', name: 'SigningDataSource');
-        developer.log('  serializedTx: ${result.serializedTx}', name: 'SigningDataSource');
-        developer.log('  rawTx: ${result.rawTx}', name: 'SigningDataSource');
-        return result;
+        return SignResponseModel.fromJson(response.data);
       }
 
       throw ServerException(
@@ -172,12 +159,11 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   }
 
   @override
-  Future<SignResultModel> signHash({
+  Future<SignResponseModel> signHash({
     required SignHashParams params,
     required WalletCreateResultModel credentials,
   }) async {
     try {
-      // Get SecureChannel and encrypt credentials
       final channel = await _secureChannelService.getOrCreateChannel();
       final encryptedPassword = _secureChannelService.encryptWithChannel(
         credentials.encDevicePassword,
@@ -196,9 +182,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
         ApiEndpoints.signHash,
         data: {
           'network': params.network,
-          'account_id': params.accountId,
           'hash': params.hash,
-          // Wallet credentials (encrypted with SecureChannel)
           'wid': encryptedWid,
           'uid': credentials.uid,
           'sid': credentials.sid,
@@ -214,7 +198,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return SignResultModel.fromJson(response.data);
+        return SignResponseModel.fromJson(response.data);
       }
 
       throw ServerException(
@@ -227,16 +211,75 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
     }
   }
 
-  String _msgTypeToString(MessageType type) {
+  @override
+  Future<SignResponseModel> signTransaction({
+    required SignTransactionParams params,
+    required WalletCreateResultModel credentials,
+  }) async {
+    try {
+      final channel = await _secureChannelService.getOrCreateChannel();
+      final encryptedPassword = _secureChannelService.encryptWithChannel(
+        credentials.encDevicePassword,
+        channel,
+      );
+      final encryptedPvencstr = _secureChannelService.encryptWithChannel(
+        credentials.pvencstr,
+        channel,
+      );
+      final encryptedWid = _secureChannelService.encryptWithChannel(
+        credentials.wid.toString(),
+        channel,
+      );
+
+      final response = await _apiClient.post(
+        ApiEndpoints.sign,
+        data: {
+          'network': params.network,
+          'encryptDevicePassword': encryptedPassword,
+          'pvencstr': encryptedPvencstr,
+          'uid': credentials.uid,
+          'wid': encryptedWid,
+          'sid': credentials.sid,
+          'to': params.to,
+          'from': params.from,
+          'value': params.value,
+          'data': params.data,
+          'nonce': params.nonce,
+          'gasLimit': params.gasLimit,
+          'maxPriorityFeePerGas': params.maxPriorityFeePerGas,
+          'maxFeePerGas': params.maxFeePerGas,
+          'type': _signTypeToString(params.type),
+        },
+        options: Options(
+          contentType: Headers.formUrlEncodedContentType,
+          headers: {
+            'Secure-Channel': channel.channelId,
+          },
+        ),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return SignResponseModel.fromJson(response.data);
+      }
+
+      throw ServerException(
+        message: 'Failed to sign transaction',
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      if (e is ServerException) rethrow;
+      throw SigningException(message: e.toString());
+    }
+  }
+
+  String _signTypeToString(SignType type) {
     switch (type) {
-      case MessageType.transaction:
-        return 'transaction';
-      case MessageType.message:
-        return 'message';
-      case MessageType.typedData:
-        return 'typed_data';
-      case MessageType.hash:
-        return 'hash';
+      case SignType.legacy:
+        return 'LEGACY';
+      case SignType.eip1559:
+        return 'EIP1559';
+      case SignType.personal:
+        return 'PERSONAL';
     }
   }
 }
