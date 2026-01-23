@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/chain/chain_repository.dart';
+import '../../../../core/utils/address_utils.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../../history/presentation/bloc/history_bloc.dart';
@@ -50,10 +51,13 @@ class _TokenTabPageState extends State<TokenTabPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFF0D0D2B),
       body: SafeArea(
         child: Column(
           children: [
-            // Custom Tab Bar
+            // Header + Balance + Action Grid
+            _buildTopSection(),
+            // Tab Bar
             _buildTabBar(),
             // Content
             Expanded(
@@ -64,8 +68,172 @@ class _TokenTabPageState extends State<TokenTabPage> {
                       child: _HistoryContent(walletAddress: widget.walletAddress),
                     ),
             ),
-            // Action Grid (Send/Receive)
-            _buildActionGrid(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          _buildHeader(),
+          const SizedBox(height: 16),
+          // Total Balance
+          _buildTotalBalance(),
+          const SizedBox(height: 16),
+          // Action Grid (Send/Receive only)
+          _buildActionGrid(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Profile
+        Row(
+          children: [
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: Colors.green,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(
+                child: Icon(Icons.person, size: 16, color: Colors.white),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '@${AddressUtils.shorten(widget.walletAddress)}',
+              style: const TextStyle(
+                color: Color(0xFF7A8499),
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+        // Action Icons
+        Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner, color: Color(0xFF6767C3)),
+              onPressed: () {
+                // TODO: QR Scanner
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 16),
+            IconButton(
+              icon: const Icon(Icons.settings, color: Color(0xFF6767C3)),
+              onPressed: () {
+                // TODO: Settings
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 16),
+            IconButton(
+              icon: const Icon(Icons.download, color: Color(0xFF6767C3)),
+              onPressed: _onReceiveTap,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTotalBalance() {
+    return BlocBuilder<TokenBloc, TokenState>(
+      builder: (context, state) {
+        String totalBalance = '₩0';
+        if (state is AllTokensLoaded) {
+          final totalKrw = state.tokens.fold<double>(
+            0,
+            (sum, token) => sum + (token.valueKrw ?? 0),
+          );
+          totalBalance = FormatUtils.formatKrw(totalKrw);
+        }
+        return Text(
+          totalBalance,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 32,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildActionGrid() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14143A),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildActionButton(
+            icon: Icons.arrow_upward,
+            label: 'Send',
+            onTap: _onSendTap,
+          ),
+          _buildActionButton(
+            icon: Icons.arrow_downward,
+            label: 'Receive',
+            onTap: _onReceiveTap,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 80,
+        child: Column(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF6767C3).withValues(alpha: 0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: const Color(0xFF6767C3),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+              ),
+            ),
           ],
         ),
       ),
@@ -75,9 +243,9 @@ class _TokenTabPageState extends State<TokenTabPage> {
   Widget _buildTabBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: Colors.grey.shade300),
+          bottom: BorderSide(color: Color(0xFF2B2B58)),
         ),
       ),
       child: Row(
@@ -108,7 +276,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
           border: Border(
             bottom: BorderSide(
               color: isSelected
-                  ? Theme.of(context).primaryColor
+                  ? const Color(0xFF2F8AF5)
                   : Colors.transparent,
               width: 2,
             ),
@@ -120,8 +288,8 @@ class _TokenTabPageState extends State<TokenTabPage> {
             fontSize: 16,
             fontWeight: FontWeight.w600,
             color: isSelected
-                ? Theme.of(context).primaryColor
-                : Colors.grey.shade500,
+                ? const Color(0xFF2F8AF5)
+                : const Color(0xFF6767C3),
           ),
         ),
       ),
@@ -131,21 +299,21 @@ class _TokenTabPageState extends State<TokenTabPage> {
   Widget _buildNetworkDropdown() {
     return GestureDetector(
       onTap: _showNetworkPicker,
-      child: Row(
+      child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            _selectedNetwork,
+            'All Networks',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.grey.shade600,
+              color: Color(0xFF6767C3),
             ),
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: 4),
           Icon(
             Icons.keyboard_arrow_down,
             size: 20,
-            color: Colors.grey.shade600,
+            color: Color(0xFF6767C3),
           ),
         ],
       ),
@@ -159,15 +327,19 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: const Color(0xFF14143A),
       builder: (context) => ListView.builder(
         shrinkWrap: true,
         itemCount: networks.length,
         itemBuilder: (context, index) {
           final network = networks[index];
           return ListTile(
-            title: Text(network),
+            title: Text(
+              network,
+              style: const TextStyle(color: Colors.white),
+            ),
             trailing: _selectedNetwork == network
-                ? Icon(Icons.check, color: Theme.of(context).primaryColor)
+                ? const Icon(Icons.check, color: Color(0xFF2F8AF5))
                 : null,
             onTap: () {
               setState(() => _selectedNetwork = network);
@@ -191,7 +363,9 @@ class _TokenTabPageState extends State<TokenTabPage> {
       },
       builder: (context, state) {
         if (state is TokenLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF2F8AF5)),
+          );
         }
 
         if (state is AllTokensLoaded) {
@@ -214,22 +388,22 @@ class _TokenTabPageState extends State<TokenTabPage> {
           Icon(
             Icons.token_outlined,
             size: 80,
-            color: Colors.grey.shade400,
+            color: Colors.grey.shade600,
           ),
           const SizedBox(height: 16),
-          Text(
+          const Text(
             'No Tokens',
             style: TextStyle(
               fontSize: 18,
-              color: Colors.grey.shade600,
+              color: Color(0xFF7A8499),
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Tokens will appear here when received',
             style: TextStyle(
               fontSize: 14,
-              color: Colors.grey.shade500,
+              color: Color(0xFF6767C3),
             ),
           ),
           const SizedBox(height: 24),
@@ -237,6 +411,10 @@ class _TokenTabPageState extends State<TokenTabPage> {
             onPressed: _loadTokens,
             icon: const Icon(Icons.refresh),
             label: const Text('Refresh'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF2F8AF5),
+              side: const BorderSide(color: Color(0xFF2F8AF5)),
+            ),
           ),
         ],
       ),
@@ -245,6 +423,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
   Widget _buildTokenList(AllTokensLoaded state) {
     return RefreshIndicator(
+      color: const Color(0xFF2F8AF5),
       onRefresh: () async {
         _loadTokens();
       },
@@ -270,12 +449,11 @@ class _TokenTabPageState extends State<TokenTabPage> {
             Stack(
               children: [
                 Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.grey.shade200),
                   ),
                   child: token.logo != null && token.logo!.isNotEmpty
                       ? ClipOval(
@@ -294,8 +472,8 @@ class _TokenTabPageState extends State<TokenTabPage> {
                     child: Container(
                       width: 16,
                       height: 16,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2F80ED),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -317,15 +495,15 @@ class _TokenTabPageState extends State<TokenTabPage> {
                     token.name,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w400,
+                      color: Colors.white,
                     ),
                   ),
                   const SizedBox(height: 2),
                   Text(
                     '${token.formattedBalance} ${token.symbol}',
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 16,
-                      color: Colors.grey.shade500,
+                      color: Color(0xFF7A8499),
                     ),
                   ),
                 ],
@@ -339,7 +517,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
                   token.formattedValueUsd,
                   style: const TextStyle(
                     fontSize: 16,
-                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -356,10 +534,10 @@ class _TokenTabPageState extends State<TokenTabPage> {
     return Center(
       child: Text(
         token.symbol.isNotEmpty ? token.symbol[0].toUpperCase() : '?',
-        style: TextStyle(
-          fontSize: 14,
+        style: const TextStyle(
+          fontSize: 16,
           fontWeight: FontWeight.bold,
-          color: Colors.grey.shade600,
+          color: Color(0xFF14143A),
         ),
       ),
     );
@@ -376,73 +554,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
       '${isPositive ? '+' : ''}${FormatUtils.formatPercent(priceChange)} (${FormatUtils.formatUsd(valueChange.abs())})',
       style: TextStyle(
         fontSize: 16,
-        color: isPositive ? Colors.green : Colors.red,
-      ),
-    );
-  }
-
-  Widget _buildActionGrid() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(color: Colors.grey.shade200),
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.arrow_upward,
-              label: 'Send',
-              onTap: _onSendTap,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.arrow_downward,
-              label: 'Receive',
-              onTap: _onReceiveTap,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 20,
-              color: Theme.of(context).primaryColor,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ],
-        ),
+        color: isPositive ? const Color(0xFF00A906) : Colors.red,
       ),
     );
   }
@@ -515,7 +627,9 @@ class _HistoryContentState extends State<_HistoryContent> {
       },
       builder: (context, state) {
         if (state is HistoryLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: Color(0xFF2F8AF5)),
+          );
         }
 
         if (state is TokenHistoryLoaded) {
