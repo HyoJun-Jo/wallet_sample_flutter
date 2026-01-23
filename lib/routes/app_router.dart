@@ -15,7 +15,7 @@ import '../features/auth/presentation/pages/password_reset_page.dart';
 import '../features/auth/presentation/pages/sns_registration_page.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../features/wallet/presentation/pages/create_wallet_page.dart';
-import '../features/main_tab/presentation/pages/main_tab_page.dart';
+import '../pages/main/main_tab_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
 import '../features/transfer/domain/entities/transfer.dart';
