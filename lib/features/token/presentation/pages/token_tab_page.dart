@@ -54,17 +54,22 @@ class _TokenTabPageState extends State<TokenTabPage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header + Balance + Action Grid
-            _buildTopSection(),
-            // Tab Bar
-            _buildTabBar(),
-            // Content
+            // Header (fixed)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: _buildHeader(),
+            ),
+            // Scrollable content
             Expanded(
               child: _selectedTabIndex == 0
-                  ? _buildTokensContent()
+                  ? _buildTokensScrollView()
                   : BlocProvider(
                       create: (context) => sl<HistoryBloc>(),
-                      child: _HistoryContent(walletAddress: widget.walletAddress),
+                      child: _HistoryContent(
+                        walletAddress: widget.walletAddress,
+                        balanceSection: _buildBalanceSection(),
+                        tabBar: _buildTabBar(),
+                      ),
                     ),
             ),
           ],
@@ -73,20 +78,55 @@ class _TokenTabPageState extends State<TokenTabPage> {
     );
   }
 
-  Widget _buildTopSection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
+  Widget _buildTokensScrollView() {
+    return BlocConsumer<TokenBloc, TokenState>(
+      listener: (context, state) {
+        if (state is TokenError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      builder: (context, state) {
+        return CustomScrollView(
+          slivers: [
+            // Balance + Action Grid
+            SliverToBoxAdapter(child: _buildBalanceSection()),
+            // Tab Bar
+            SliverToBoxAdapter(child: _buildTabBar()),
+            // Content
+            if (state is TokenLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (state is AllTokensLoaded && state.tokens.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => _buildTokenItem(state.tokens[index]),
+                    childCount: state.tokens.length,
+                  ),
+                ),
+              )
+            else
+              SliverFillRemaining(child: _buildEmptyState()),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildBalanceSection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          _buildHeader(),
-          const SizedBox(height: 16),
-          // Total Balance
           _buildTotalBalance(),
           const SizedBox(height: 16),
-          // Action Grid (Send/Receive only)
           _buildActionGrid(),
+          const SizedBox(height: 16),
         ],
       ),
     );
@@ -347,34 +387,6 @@ class _TokenTabPageState extends State<TokenTabPage> {
     );
   }
 
-  Widget _buildTokensContent() {
-    return BlocConsumer<TokenBloc, TokenState>(
-      listener: (context, state) {
-        if (state is TokenError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
-        }
-      },
-      builder: (context, state) {
-        if (state is TokenLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        if (state is AllTokensLoaded) {
-          if (state.tokens.isEmpty) {
-            return _buildEmptyState();
-          }
-          return _buildTokenList(state);
-        }
-
-        return _buildEmptyState();
-      },
-    );
-  }
-
   Widget _buildEmptyState() {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
@@ -409,22 +421,6 @@ class _TokenTabPageState extends State<TokenTabPage> {
             label: const Text('Refresh'),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTokenList(AllTokensLoaded state) {
-    return RefreshIndicator(
-      onRefresh: () async {
-        _loadTokens();
-      },
-      child: ListView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: state.tokens.length,
-        itemBuilder: (context, index) {
-          final token = state.tokens[index];
-          return _buildTokenItem(token);
-        },
       ),
     );
   }
@@ -581,8 +577,14 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
 class _HistoryContent extends StatefulWidget {
   final String walletAddress;
+  final Widget balanceSection;
+  final Widget tabBar;
 
-  const _HistoryContent({required this.walletAddress});
+  const _HistoryContent({
+    required this.walletAddress,
+    required this.balanceSection,
+    required this.tabBar,
+  });
 
   @override
   State<_HistoryContent> createState() => _HistoryContentState();
@@ -619,23 +621,30 @@ class _HistoryContentState extends State<_HistoryContent> {
         }
       },
       builder: (context, state) {
-        if (state is HistoryLoading) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        if (state is TokenHistoryLoaded) {
-          return HistoryList(
-            transactions: state.transactions,
-            isUpdating: state.isFromCache,
-            onRefresh: _loadHistory,
-          );
-        }
-
-        return HistoryList(
-          transactions: const [],
-          onRefresh: _loadHistory,
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: widget.balanceSection),
+            SliverToBoxAdapter(child: widget.tabBar),
+            if (state is HistoryLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (state is TokenHistoryLoaded)
+              SliverToBoxAdapter(
+                child: HistoryList(
+                  transactions: state.transactions,
+                  isUpdating: state.isFromCache,
+                  onRefresh: _loadHistory,
+                ),
+              )
+            else
+              SliverToBoxAdapter(
+                child: HistoryList(
+                  transactions: const [],
+                  onRefresh: _loadHistory,
+                ),
+              ),
+          ],
         );
       },
     );
