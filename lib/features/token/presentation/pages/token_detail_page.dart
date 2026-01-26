@@ -33,13 +33,13 @@ class _TokenDetailPageState extends State<TokenDetailPage> {
   TokenInfo get token => widget.token;
   String get walletAddress => widget.walletAddress;
 
-  // Price change calculations using helper functions
-  double? get priceChangePercent => getPriceChangePercent(token.chartData);
-  double? get priceChange1d => getPriceChange1d(token.chartData);
-  double? get priceChange1w => getPriceChange1w(token.chartData);
-  double? get priceChange1m => getPriceChange1m(token.chartData);
-  double? get marketCap => getMarketCap(token);
-  double? get balanceValueKrw => getTokenValueKrw(token);
+  // Price change calculations using entity getters
+  double? get priceChangePercent => token.priceChangePercent;
+  double? get priceChange1d => token.priceChange1d;
+  double? get priceChange1w => token.priceChange1w;
+  double? get priceChange1m => token.priceChange1m;
+  double? get marketCap => token.marketCap;
+  double? get balanceValueKrw => token.valueKrw;
 
   bool get isPositiveChange => (priceChangePercent ?? 0) >= 0;
   bool get hasMarketInfo =>

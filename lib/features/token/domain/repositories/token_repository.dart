@@ -1,7 +1,7 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failures.dart';
 import '../entities/token_info.dart';
-import '../entities/transfer.dart';
+import '../entities/token_transfer.dart';
 
 /// Callback for when tokens are refreshed in background
 typedef OnTokensRefreshed = void Function(List<TokenInfo> tokens);
@@ -20,18 +20,10 @@ abstract class TokenRepository {
     OnTokensRefreshed? onRefresh,
   });
 
-  /// Get token allowance
-  Future<Either<Failure, TokenAllowance>> getAllowance({
-    required String contractAddress,
-    required String ownerAddress,
-    required String spenderAddress,
-    required String network,
-  });
-
   /// Get transfer data (ERC-20 transfer() ABI data)
   /// Used for ERC-20 token transfers to encode the transfer function call
-  Future<Either<Failure, TransferDataResult>> getTransferData({
-    required GetTransferDataParams params,
+  Future<Either<Failure, TokenTransferDataResult>> getTransferData({
+    required GetTokenTransferDataParams params,
   });
 
   /// Clear cached tokens

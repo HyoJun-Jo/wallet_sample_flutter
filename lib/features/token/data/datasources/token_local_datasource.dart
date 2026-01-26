@@ -37,7 +37,7 @@ class TokenLocalDataSourceImpl implements TokenLocalDataSource {
     try {
       final list = jsonDecode(jsonString) as List<dynamic>;
       return list
-          .map((e) => TokenInfoModel.fromJson(e as Map<String, dynamic>))
+          .map((e) => TokenInfoModel.fromCacheJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
       // If parsing fails, clear the corrupted cache

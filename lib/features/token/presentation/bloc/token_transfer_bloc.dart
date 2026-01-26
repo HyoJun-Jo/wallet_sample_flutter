@@ -3,47 +3,47 @@ import 'dart:developer';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/chain/chain_repository.dart';
+import '../../../../core/utils/format_utils.dart';
 import '../../../../shared/transaction/domain/entities/transaction_entities.dart';
 import '../../../../shared/transaction/domain/repositories/transaction_repository.dart';
-import '../../domain/entities/transfer.dart';
-import '../../domain/usecases/transfer_token_usecase.dart';
-import '../../../token/data/models/transfer_model.dart';
-import 'transfer_event.dart';
-import 'transfer_state.dart';
+import '../../domain/entities/token_transfer.dart';
+import '../../domain/usecases/token_transfer_usecase.dart';
+import 'token_transfer_event.dart';
+import 'token_transfer_state.dart';
 
-/// Transfer BLoC (matches SDK - uses TransferTokenUseCase)
+/// Token Transfer BLoC (matches SDK - uses TokenTransferUseCase)
 /// Supports two modes:
-/// 1. PrepareTransfer → TransferDataReady (for showing confirmation UI)
-/// 2. TransferRequested → TransferCompleted (full transfer flow)
-class TransferBloc extends Bloc<TransferEvent, TransferState> {
-  final TransferTokenUseCase _transferTokenUseCase;
+/// 1. PrepareTokenTransfer → TokenTransferDataReady (for showing confirmation UI)
+/// 2. TokenTransferRequested → TokenTransferCompleted (full transfer flow)
+class TokenTransferBloc extends Bloc<TokenTransferEvent, TokenTransferState> {
+  final TokenTransferUseCase _tokenTransferUseCase;
   final TransactionRepository _transactionRepository;
   final ChainRepository _chainRepository;
 
-  TransferBloc({
-    required TransferTokenUseCase transferTokenUseCase,
+  TokenTransferBloc({
+    required TokenTransferUseCase tokenTransferUseCase,
     required TransactionRepository transactionRepository,
     required ChainRepository chainRepository,
-  })  : _transferTokenUseCase = transferTokenUseCase,
+  })  : _tokenTransferUseCase = tokenTransferUseCase,
         _transactionRepository = transactionRepository,
         _chainRepository = chainRepository,
-        super(const TransferInitial()) {
-    on<PrepareTransfer>(_onPrepareTransfer);
-    on<TransferRequested>(_onTransferRequested);
-    on<TransferReset>(_onReset);
+        super(const TokenTransferInitial()) {
+    on<PrepareTokenTransfer>(_onPrepareTransfer);
+    on<TokenTransferRequested>(_onTransferRequested);
+    on<TokenTransferReset>(_onReset);
   }
 
   /// Prepare transfer data (gas fees, etc.) for confirmation UI
   Future<void> _onPrepareTransfer(
-    PrepareTransfer event,
-    Emitter<TransferState> emit,
+    PrepareTokenTransfer event,
+    Emitter<TokenTransferState> emit,
   ) async {
-    emit(const TransferLoading());
+    emit(const TokenTransferLoading());
 
     try {
       final chain = _chainRepository.getByNetwork(event.network);
       if (chain == null) {
-        emit(TransferError(message: 'Unknown network: ${event.network}'));
+        emit(TokenTransferError(message: 'Unknown network: ${event.network}'));
         return;
       }
 
@@ -51,7 +51,7 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       final decimals = isNative ? chain.decimals : 18; // ERC-20 typically 18
 
       // Calculate value in wei
-      final value = _toWeiHex(event.amount, decimals);
+      final value = FormatUtils.toWeiHex(event.amount, decimals);
 
       // Determine to address and data
       final String toAddress;
@@ -106,10 +106,9 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
       final maxFeePerGas = gasFees?.medium.maxFeePerGas ?? '0x6fc23ac00'; // ~30 gwei
       final maxPriorityFeePerGas = gasFees?.medium.maxPriorityFeePerGas ?? '0x59682f00'; // ~1.5 gwei
 
-      log('PrepareTransfer: gasLimit=$gasLimit, maxFeePerGas=$maxFeePerGas', name: 'TransferBloc');
+      log('PrepareTokenTransfer: gasLimit=$gasLimit, maxFeePerGas=$maxFeePerGas', name: 'TokenTransferBloc');
 
-      // Create TransferData for confirmation UI
-      final transferData = TransferDataModel(
+      final transferData = TokenTransferData(
         to: toAddress,
         from: event.fromAddress,
         data: data,
@@ -121,8 +120,8 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
         network: event.network,
       );
 
-      // Create TransferParams for later execution
-      final transferParams = TransferParams(
+      // Create TokenTransferParams for later execution
+      final transferParams = TokenTransferParams(
         fromAddress: event.fromAddress,
         toAddress: event.toAddress,
         contractAddress: event.contractAddress.isNotEmpty ? event.contractAddress : null,
@@ -136,58 +135,37 @@ class TransferBloc extends Bloc<TransferEvent, TransferState> {
         gasLimit: gasLimit,
       );
 
-      emit(TransferDataReady(
+      emit(TokenTransferDataReady(
         transferData: transferData,
         transferParams: transferParams,
       ));
     } catch (e) {
-      log('PrepareTransfer error: $e', name: 'TransferBloc');
-      emit(TransferError(message: e.toString()));
+      log('PrepareTokenTransfer error: $e', name: 'TokenTransferBloc');
+      emit(TokenTransferError(message: e.toString()));
     }
   }
 
   /// Execute the full transfer flow (sign + send)
   Future<void> _onTransferRequested(
-    TransferRequested event,
-    Emitter<TransferState> emit,
+    TokenTransferRequested event,
+    Emitter<TokenTransferState> emit,
   ) async {
-    emit(const TransferLoading());
+    emit(const TokenTransferLoading());
 
-    final result = await _transferTokenUseCase(
-      TransferTokenParams(transferParams: event.params),
+    final result = await _tokenTransferUseCase(
+      TokenTransferUseCaseParams(transferParams: event.params),
     );
 
     result.fold(
-      (failure) => emit(TransferError(message: failure.message)),
-      (transferResult) => emit(TransferCompleted(result: transferResult)),
+      (failure) => emit(TokenTransferError(message: failure.message)),
+      (transferResult) => emit(TokenTransferCompleted(result: transferResult)),
     );
   }
 
   void _onReset(
-    TransferReset event,
-    Emitter<TransferState> emit,
+    TokenTransferReset event,
+    Emitter<TokenTransferState> emit,
   ) {
-    emit(const TransferInitial());
-  }
-
-  /// Convert amount string to wei (hex string)
-  String _toWeiHex(String amount, int decimals) {
-    final parts = amount.split('.');
-    String intPart = parts[0];
-    String decPart = parts.length > 1 ? parts[1] : '';
-
-    // Pad or trim decimal part
-    if (decPart.length < decimals) {
-      decPart = decPart.padRight(decimals, '0');
-    } else if (decPart.length > decimals) {
-      decPart = decPart.substring(0, decimals);
-    }
-
-    // Combine and parse as BigInt
-    final weiString = intPart + decPart;
-    final wei = BigInt.parse(weiString);
-
-    // Return as hex string
-    return '0x${wei.toRadixString(16)}';
+    emit(const TokenTransferInitial());
   }
 }

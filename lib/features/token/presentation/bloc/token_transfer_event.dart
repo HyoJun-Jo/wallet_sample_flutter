@@ -1,24 +1,24 @@
 import 'package:equatable/equatable.dart';
 
-import '../../domain/entities/transfer.dart';
+import '../../domain/entities/token_transfer.dart';
 
-/// Transfer event base class
-abstract class TransferEvent extends Equatable {
-  const TransferEvent();
+/// Token transfer event base class
+abstract class TokenTransferEvent extends Equatable {
+  const TokenTransferEvent();
 
   @override
   List<Object?> get props => [];
 }
 
 /// Prepare transfer data (for confirmation UI)
-class PrepareTransfer extends TransferEvent {
+class PrepareTokenTransfer extends TokenTransferEvent {
   final String fromAddress;
   final String toAddress;
   final String amount;
   final String contractAddress; // Empty for native token
   final String network;
 
-  const PrepareTransfer({
+  const PrepareTokenTransfer({
     required this.fromAddress,
     required this.toAddress,
     required this.amount,
@@ -31,16 +31,16 @@ class PrepareTransfer extends TransferEvent {
 }
 
 /// Execute transfer (entire flow: sign + send)
-class TransferRequested extends TransferEvent {
-  final TransferParams params;
+class TokenTransferRequested extends TokenTransferEvent {
+  final TokenTransferParams params;
 
-  const TransferRequested({required this.params});
+  const TokenTransferRequested({required this.params});
 
   @override
   List<Object?> get props => [params];
 }
 
 /// Reset transfer state
-class TransferReset extends TransferEvent {
-  const TransferReset();
+class TokenTransferReset extends TokenTransferEvent {
+  const TokenTransferReset();
 }

@@ -51,7 +51,6 @@ class TokenBloc extends Bloc<TokenEvent, TokenState> {
           totalValueUsd: totalUsd,
           totalValueKrw: totalKrw,
           walletAddress: event.walletAddress,
-          isFromCache: true, // First response may be from cache
         ));
       },
     );
@@ -70,7 +69,6 @@ class TokenBloc extends Bloc<TokenEvent, TokenState> {
         totalValueUsd: totalUsd,
         totalValueKrw: totalKrw,
         walletAddress: currentState.walletAddress,
-        isFromCache: false, // This is fresh from API
       ));
     }
   }

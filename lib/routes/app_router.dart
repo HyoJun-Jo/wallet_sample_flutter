@@ -18,11 +18,11 @@ import '../features/wallet/presentation/pages/create_wallet_page.dart';
 import '../pages/main/main_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
-import '../features/token/domain/entities/transfer.dart';
-import '../features/token/presentation/bloc/transfer_bloc.dart';
-import '../features/token/presentation/pages/send_token_page.dart';
-import '../features/token/presentation/pages/transfer_confirm_page.dart';
-import '../features/token/presentation/pages/transfer_complete_page.dart';
+import '../features/token/domain/entities/token_transfer.dart';
+import '../features/token/presentation/bloc/token_transfer_bloc.dart';
+import '../features/token/presentation/pages/token_transfer_input_page.dart';
+import '../features/token/presentation/pages/token_transfer_confirm_page.dart';
+import '../features/token/presentation/pages/token_transfer_complete_page.dart';
 import '../pages/splash/splash_page.dart';
 
 // Route observer for tracking navigation
@@ -161,14 +161,14 @@ GoRouter createAppRouter(
       },
     ),
 
-    // Token transfer page
+    // Token transfer input page
     GoRoute(
       path: '/transfer',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>?;
         return BlocProvider(
-          create: (_) => sl<TransferBloc>(),
-          child: SendTokenPage(
+          create: (_) => sl<TokenTransferBloc>(),
+          child: TokenTransferInputPage(
             walletAddress: extra?['walletAddress'] ?? '',
             token: extra?['token'] as TokenInfo?,
           ),
@@ -182,10 +182,10 @@ GoRouter createAppRouter(
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
         return BlocProvider(
-          create: (_) => sl<TransferBloc>(),
-          child: TransferConfirmPage(
-            transferData: extra['transferData'] as TransferData,
-            transferParams: extra['transferParams'] as TransferParams,
+          create: (_) => sl<TokenTransferBloc>(),
+          child: TokenTransferConfirmPage(
+            transferData: extra['transferData'] as TokenTransferData,
+            transferParams: extra['transferParams'] as TokenTransferParams,
             walletAddress: extra['walletAddress'] as String,
             token: extra['token'] as TokenInfo?,
           ),
@@ -198,9 +198,9 @@ GoRouter createAppRouter(
       path: '/transfer/complete',
       builder: (context, state) {
         final extra = state.extra as Map<String, dynamic>;
-        return TransferCompletePage(
-          transferData: extra['transferData'] as TransferData,
-          result: extra['result'] as TransferResult,
+        return TokenTransferCompletePage(
+          transferData: extra['transferData'] as TokenTransferData,
+          result: extra['result'] as TokenTransferResult,
           walletAddress: extra['walletAddress'] as String,
           token: extra['token'] as TokenInfo?,
           amount: extra['amount'] as String?,

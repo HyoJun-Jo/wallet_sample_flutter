@@ -10,7 +10,7 @@ import '../../../history/presentation/bloc/history_bloc.dart';
 import '../../../history/presentation/bloc/history_event.dart';
 import '../../../history/presentation/bloc/history_state.dart';
 import '../../../history/presentation/widgets/history_list.dart';
-import '../../domain/entities/token_info.dart' show TokenInfo, getPriceChange1d;
+import '../../domain/entities/token_info.dart';
 import '../bloc/token_bloc.dart';
 import '../bloc/token_event.dart';
 import '../bloc/token_state.dart';
@@ -533,7 +533,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
   }
 
   Widget _buildPriceChange(TokenInfo token) {
-    final priceChange = getPriceChange1d(token.chartData) ?? 0.0;
+    final priceChange = token.priceChange1d ?? 0.0;
     final valueChange = token.valueUsd != null
         ? token.valueUsd! * (priceChange / 100)
         : 0.0;

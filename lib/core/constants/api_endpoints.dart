@@ -56,7 +56,6 @@ class ApiEndpoints {
   static const String tokenTransferData = '/wapi/v2/token/transfer-data';
 
   /// Get token allowance
-  static const String tokenAllowance = '/wapi/v2/token/allowance';
 
   /// Get token list
   static const String tokens = '/wapi/v2/walletscan/tokens';

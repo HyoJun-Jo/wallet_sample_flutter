@@ -9,19 +9,19 @@ import '../../../../core/utils/format_utils.dart';
 import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../domain/entities/token_info.dart';
-import '../../domain/entities/transfer.dart';
-import '../bloc/transfer_bloc.dart';
-import '../bloc/transfer_event.dart';
-import '../bloc/transfer_state.dart';
+import '../../domain/entities/token_transfer.dart';
+import '../bloc/token_transfer_bloc.dart';
+import '../bloc/token_transfer_event.dart';
+import '../bloc/token_transfer_state.dart';
 
-/// Transfer confirmation page - Figma aligned design
-class TransferConfirmPage extends StatefulWidget {
-  final TransferData transferData;
-  final TransferParams transferParams;
+/// Token transfer confirmation page - Figma aligned design
+class TokenTransferConfirmPage extends StatefulWidget {
+  final TokenTransferData transferData;
+  final TokenTransferParams transferParams;
   final String walletAddress;
   final TokenInfo? token;
 
-  const TransferConfirmPage({
+  const TokenTransferConfirmPage({
     super.key,
     required this.transferData,
     required this.transferParams,
@@ -30,21 +30,21 @@ class TransferConfirmPage extends StatefulWidget {
   });
 
   @override
-  State<TransferConfirmPage> createState() => _TransferConfirmPageState();
+  State<TokenTransferConfirmPage> createState() => _TokenTransferConfirmPageState();
 }
 
-class _TransferConfirmPageState extends State<TransferConfirmPage> {
+class _TokenTransferConfirmPageState extends State<TokenTransferConfirmPage> {
   bool _isDataExpanded = false;
 
-  TransferData get transferData => widget.transferData;
-  TransferParams get transferParams => widget.transferParams;
+  TokenTransferData get transferData => widget.transferData;
+  TokenTransferParams get transferParams => widget.transferParams;
   TokenInfo? get token => widget.token;
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<TransferBloc, TransferState>(
+    return BlocListener<TokenTransferBloc, TokenTransferState>(
       listener: (context, state) {
-        if (state is TransferCompleted) {
+        if (state is TokenTransferCompleted) {
           final chainRepository = sl<ChainRepository>();
           final chain = chainRepository.getByNetwork(transferData.network);
           final decimals = chain?.decimals ?? 18;
@@ -59,7 +59,7 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
             'token': token,
             'amount': isNative ? WeiUtils.fromWei(valueWei, decimals) : null,
           });
-        } else if (state is TransferError) {
+        } else if (state is TokenTransferError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(state.message),
@@ -512,9 +512,9 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
   }
 
   Widget _buildBottomButtons(BuildContext context) {
-    return BlocBuilder<TransferBloc, TransferState>(
+    return BlocBuilder<TokenTransferBloc, TokenTransferState>(
       builder: (context, state) {
-        final isLoading = state is TransferLoading;
+        final isLoading = state is TokenTransferLoading;
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -543,8 +543,8 @@ class _TransferConfirmPageState extends State<TransferConfirmPage> {
                     onPressed: isLoading
                         ? null
                         : () {
-                            context.read<TransferBloc>().add(
-                              TransferRequested(params: transferParams),
+                            context.read<TokenTransferBloc>().add(
+                              TokenTransferRequested(params: transferParams),
                             );
                           },
                     style: ElevatedButton.styleFrom(

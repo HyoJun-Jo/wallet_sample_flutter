@@ -10,17 +10,17 @@ import '../../../../core/utils/address_utils.dart';
 import '../../../../core/utils/wei_utils.dart';
 import '../../../../di/injection_container.dart';
 import '../../domain/entities/token_info.dart';
-import '../../domain/entities/transfer.dart';
+import '../../domain/entities/token_transfer.dart';
 
-/// Transfer complete page - shows transaction result
-class TransferCompletePage extends StatelessWidget {
-  final TransferData transferData;
-  final TransferResult result;
+/// Token transfer complete page - shows transaction result
+class TokenTransferCompletePage extends StatelessWidget {
+  final TokenTransferData transferData;
+  final TokenTransferResult result;
   final String walletAddress;
   final TokenInfo? token;
   final String? amount;
 
-  const TransferCompletePage({
+  const TokenTransferCompletePage({
     super.key,
     required this.transferData,
     required this.result,
@@ -290,7 +290,7 @@ class TransferCompletePage extends StatelessWidget {
 
   Future<void> _openExplorer(BuildContext context) async {
     final url = _getExplorerUrl(result.transactionHash);
-    developer.log('[TransferComplete] Explorer URL: $url', name: 'TransferComplete');
+    developer.log('[TokenTransferComplete] Explorer URL: $url', name: 'TokenTransferComplete');
     if (url.isEmpty) return;
 
     final uri = Uri.parse(url);

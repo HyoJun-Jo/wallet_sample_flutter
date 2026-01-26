@@ -79,4 +79,26 @@ class FormatUtils {
       (m) => '${m[1]},',
     );
   }
+
+  /// Convert amount string to wei (hex string)
+  /// Used for blockchain transaction value formatting
+  static String toWeiHex(String amount, int decimals) {
+    final parts = amount.split('.');
+    String intPart = parts[0];
+    String decPart = parts.length > 1 ? parts[1] : '';
+
+    // Pad or trim decimal part
+    if (decPart.length < decimals) {
+      decPart = decPart.padRight(decimals, '0');
+    } else if (decPart.length > decimals) {
+      decPart = decPart.substring(0, decimals);
+    }
+
+    // Combine and parse as BigInt
+    final weiString = intPart + decPart;
+    final wei = BigInt.parse(weiString);
+
+    // Return as hex string
+    return '0x${wei.toRadixString(16)}';
+  }
 }

@@ -5,26 +5,26 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/utils/network_utils.dart';
 import '../../domain/entities/token_info.dart';
-import '../bloc/transfer_bloc.dart';
-import '../bloc/transfer_event.dart';
-import '../bloc/transfer_state.dart';
+import '../bloc/token_transfer_bloc.dart';
+import '../bloc/token_transfer_event.dart';
+import '../bloc/token_transfer_state.dart';
 
-/// Send token page - Figma aligned layout
-class SendTokenPage extends StatefulWidget {
+/// Token transfer input page - first step of transfer flow
+class TokenTransferInputPage extends StatefulWidget {
   final String walletAddress;
   final TokenInfo? token;
 
-  const SendTokenPage({
+  const TokenTransferInputPage({
     super.key,
     required this.walletAddress,
     this.token,
   });
 
   @override
-  State<SendTokenPage> createState() => _SendTokenPageState();
+  State<TokenTransferInputPage> createState() => _TokenTransferInputPageState();
 }
 
-class _SendTokenPageState extends State<SendTokenPage> {
+class _TokenTransferInputPageState extends State<TokenTransferInputPage> {
   final _formKey = GlobalKey<FormState>();
   final _toAddressController = TextEditingController();
   final _amountController = TextEditingController();
@@ -39,7 +39,7 @@ class _SendTokenPageState extends State<SendTokenPage> {
 
   void _onNext() {
     if (_formKey.currentState?.validate() ?? false) {
-      context.read<TransferBloc>().add(PrepareTransfer(
+      context.read<TokenTransferBloc>().add(PrepareTokenTransfer(
             fromAddress: widget.walletAddress,
             toAddress: _toAddressController.text.trim(),
             amount: _amountController.text.trim(),
@@ -77,18 +77,18 @@ class _SendTokenPageState extends State<SendTokenPage> {
         ),
       ),
       body: SafeArea(
-        child: BlocConsumer<TransferBloc, TransferState>(
+        child: BlocConsumer<TokenTransferBloc, TokenTransferState>(
           listener: (context, state) {
-            if (state is TransferCompleted) {
+            if (state is TokenTransferCompleted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text('Transfer completed: ${state.result.transactionHash}')),
               );
               context.pop();
-            } else if (state is TransferError) {
+            } else if (state is TokenTransferError) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(state.message), backgroundColor: Colors.red),
               );
-            } else if (state is TransferDataReady) {
+            } else if (state is TokenTransferDataReady) {
               context.push(
                 '/transfer/confirm',
                 extra: {
@@ -101,7 +101,7 @@ class _SendTokenPageState extends State<SendTokenPage> {
             }
           },
           builder: (context, state) {
-            final isLoading = state is TransferLoading;
+            final isLoading = state is TokenTransferLoading;
             return Column(
               children: [
                 // Content

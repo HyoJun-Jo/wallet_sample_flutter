@@ -48,9 +48,9 @@ import '../features/token/domain/repositories/token_repository.dart';
 import '../features/token/domain/usecases/get_all_tokens_usecase.dart';
 import '../features/token/presentation/bloc/token_bloc.dart';
 
-// Transfer
-import '../features/token/domain/usecases/transfer_token_usecase.dart';
-import '../features/token/presentation/bloc/transfer_bloc.dart';
+// Token Transfer
+import '../features/token/domain/usecases/token_transfer_usecase.dart';
+import '../features/token/presentation/bloc/token_transfer_bloc.dart';
 
 // Signing
 import '../shared/signing/data/datasources/signing_remote_datasource.dart';
@@ -257,15 +257,15 @@ Future<void> init() async {
       ));
 
   // UseCases
-  sl.registerLazySingleton(() => TransferTokenUseCase(
+  sl.registerLazySingleton(() => TokenTransferUseCase(
         tokenRepository: sl(),
         transactionRepository: sl(),
         signingRepository: sl(),
       ));
 
   // BLoC
-  sl.registerFactory(() => TransferBloc(
-        transferTokenUseCase: sl(),
+  sl.registerFactory(() => TokenTransferBloc(
+        tokenTransferUseCase: sl(),
         transactionRepository: sl(),
         chainRepository: sl(),
       ));
