@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import '../../../../core/wallet/entities/wallet.dart';
+import '../../../../shared/wallet/domain/entities/wallet_credentials.dart';
 
 /// Wallet state base class
 abstract class WalletState extends Equatable {
@@ -19,24 +19,24 @@ class WalletLoading extends WalletState {
   const WalletLoading();
 }
 
-/// Wallet list loaded
-class WalletListLoaded extends WalletState {
-  final List<Wallet> wallets;
+/// Wallet credentials loaded
+class WalletLoaded extends WalletState {
+  final WalletCredentials? credentials;
 
-  const WalletListLoaded({required this.wallets});
+  const WalletLoaded({this.credentials});
 
   @override
-  List<Object?> get props => [wallets];
+  List<Object?> get props => [credentials];
 }
 
 /// Wallet created
 class WalletCreated extends WalletState {
-  final WalletCreateResult result;
+  final WalletCredentials credentials;
 
-  const WalletCreated({required this.result});
+  const WalletCreated({required this.credentials});
 
   @override
-  List<Object?> get props => [result];
+  List<Object?> get props => [credentials];
 }
 
 /// Wallet deleted

@@ -126,4 +126,7 @@ class ApiEndpoints {
 
   /// V3 sign
   static const String signV3 = '/v3/wallet/sign';
+
+  /// BTC address lookup
+  static const String btcAddress = '/wapi/v2/btc/address';
 }

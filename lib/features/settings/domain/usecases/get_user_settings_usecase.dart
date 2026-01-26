@@ -5,7 +5,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/local_storage.dart';
 import '../../../../core/usecases/usecase.dart';
 import '../../../../core/auth/entities/auth_entities.dart';
-import '../../../../core/wallet/repositories/wallet_repository.dart';
+import '../../../../shared/wallet/domain/repositories/wallet_repository.dart';
 import '../entities/user_settings.dart';
 
 class GetUserSettingsUseCase implements UseCase<UserSettings, NoParams> {
@@ -31,13 +31,11 @@ class GetUserSettingsUseCase implements UseCase<UserSettings, NoParams> {
 
       // Get wallet address
       String? walletAddress;
-      final walletsResult = await _walletRepository.getSavedWallets();
-      walletsResult.fold(
+      final credentialsResult = await _walletRepository.getWalletCredentials();
+      credentialsResult.fold(
         (failure) {},
-        (wallets) {
-          if (wallets.isNotEmpty) {
-            walletAddress = wallets.first.address;
-          }
+        (credentials) {
+          walletAddress = credentials?.address;
         },
       );
 

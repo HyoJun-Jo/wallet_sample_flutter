@@ -34,10 +34,12 @@ import '../features/auth/presentation/bloc/email_registration_bloc.dart';
 import '../features/auth/presentation/bloc/password_reset_bloc.dart';
 
 // Wallet
-import '../features/wallet/data/datasources/wallet_remote_datasource.dart';
-import '../features/wallet/data/repositories/wallet_repository_impl.dart';
-import '../core/wallet/repositories/wallet_repository.dart';
-import '../features/wallet/domain/usecases/create_wallet_usecase.dart';
+import '../shared/wallet/data/datasources/wallet_local_datasource.dart';
+import '../shared/wallet/data/datasources/wallet_remote_datasource.dart';
+import '../shared/wallet/data/repositories/wallet_repository_impl.dart';
+import '../shared/wallet/domain/repositories/wallet_repository.dart';
+import '../shared/wallet/domain/usecases/create_wallet_usecase.dart';
+import '../shared/wallet/domain/usecases/check_wallet_usecase.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 
 // Token
@@ -208,23 +210,28 @@ Future<void> init() async {
         initPasswordUseCase: sl(),
       ));
 
-  // DataSource
+  // DataSources
+  sl.registerLazySingleton<WalletLocalDataSource>(
+    () => WalletLocalDataSourceImpl(secureStorage: sl()),
+  );
   sl.registerLazySingleton<WalletRemoteDataSource>(
-    () => WalletRemoteDataSourceImpl(apiClient: sl()),
+    () => WalletRemoteDataSourceImpl(
+      apiClient: sl(),
+      secureChannelService: sl(),
+    ),
   );
 
   // Repository
   sl.registerLazySingleton<WalletRepository>(
     () => WalletRepositoryImpl(
       remoteDataSource: sl(),
-      secureStorage: sl(),
-      localStorage: sl(),
-      secureChannelService: sl(),
+      localDataSource: sl(),
     ),
   );
 
   // UseCases
   sl.registerLazySingleton(() => CreateWalletUseCase(sl()));
+  sl.registerLazySingleton(() => CheckWalletUseCase(sl()));
 
   // BLoC
   sl.registerFactory(() => WalletBloc(
@@ -282,7 +289,7 @@ Future<void> init() async {
   sl.registerLazySingleton<SigningRepository>(
     () => SigningRepositoryImpl(
       remoteDataSource: sl(),
-      secureStorage: sl(),
+      walletLocalDataSource: sl(),
     ),
   );
 

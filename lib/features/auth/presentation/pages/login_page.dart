@@ -4,6 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/auth/entities/auth_entities.dart';
+import '../../../../core/usecases/usecase.dart';
+import '../../../../di/injection_container.dart';
+import '../../../../shared/wallet/domain/usecases/check_wallet_usecase.dart';
 import '../bloc/login_bloc.dart';
 import '../bloc/login_event.dart';
 import '../bloc/login_state.dart';
@@ -53,8 +56,14 @@ class _LoginPageState extends State<LoginPage> {
       ),
       body: SafeArea(
         child: BlocConsumer<LoginBloc, LoginState>(
-          listener: (context, state) {
-            if (state is SnsRegistrationRequired) {
+          listener: (context, state) async {
+            if (state is LoginAuthenticated) {
+              // Check wallet and navigate
+              final hasWallet = await sl<CheckWalletUseCase>()(NoParams());
+              if (context.mounted) {
+                context.go(hasWallet ? '/main' : '/wallet/create');
+              }
+            } else if (state is SnsRegistrationRequired) {
               context.go('/register/sns', extra: {
                 'email': state.email,
                 'sixcode': state.sixcode,

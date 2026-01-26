@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
 import '../storage/local_storage.dart';
@@ -22,8 +20,6 @@ class SessionManager extends ChangeNotifier {
   final SecureStorageService _secureStorage;
   final LocalStorageService _localStorage;
 
-  static const String _walletsKey = 'saved_wallets';
-
   AuthStatus _status = AuthStatus.unknown;
   InitialRoute? _initialRoute;
   bool _isInitialized = false;
@@ -40,7 +36,8 @@ class SessionManager extends ChangeNotifier {
   bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   /// Initialize app and determine initial route
-  Future<void> initialize() async {
+  /// Note: Wallet check is done separately by WalletRepository
+  Future<void> initialize({bool hasWallet = false}) async {
     if (_isInitialized) return;
 
     // Check if access token exists
@@ -65,32 +62,12 @@ class SessionManager extends ChangeNotifier {
       return;
     }
 
-    // Check if wallet exists
-    final hasWallet = _checkHasWallet();
-
-    if (!hasWallet) {
-      _status = AuthStatus.authenticated;
-      _initialRoute = InitialRoute.walletCreate;
-    } else {
-      _status = AuthStatus.authenticated;
-      _initialRoute = InitialRoute.main;
-    }
+    // Authenticated - route based on wallet existence
+    _status = AuthStatus.authenticated;
+    _initialRoute = hasWallet ? InitialRoute.main : InitialRoute.walletCreate;
 
     _isInitialized = true;
     notifyListeners();
-  }
-
-  bool _checkHasWallet() {
-    final walletsJson = _localStorage.getString(_walletsKey);
-    if (walletsJson == null || walletsJson.isEmpty) {
-      return false;
-    }
-    try {
-      final List<dynamic> walletsList = jsonDecode(walletsJson);
-      return walletsList.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
   }
 
   void onAuthenticated() {

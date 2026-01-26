@@ -8,9 +8,9 @@ abstract class WalletEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-/// Request to load wallet list
-class WalletListRequested extends WalletEvent {
-  const WalletListRequested();
+/// Request to load wallet credentials
+class WalletLoadRequested extends WalletEvent {
+  const WalletLoadRequested();
 }
 
 /// Request to create wallet

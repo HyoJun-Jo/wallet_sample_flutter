@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../core/wallet/repositories/wallet_repository.dart';
-import '../../di/injection_container.dart';
-import '../../features/browser/presentation/bloc/browser_bloc.dart';
-import '../../features/browser/presentation/pages/web3_browser_tab_page.dart';
-import '../../features/token/presentation/bloc/token_bloc.dart';
-import '../../features/token/presentation/pages/token_tab_page.dart';
-import '../../features/settings/presentation/bloc/settings_bloc.dart';
-import '../../features/settings/presentation/bloc/settings_event.dart';
-import '../../features/settings/presentation/pages/settings_tab_page.dart';
+import '../shared/wallet/domain/repositories/wallet_repository.dart';
+import '../di/injection_container.dart';
+import '../features/browser/presentation/bloc/browser_bloc.dart';
+import '../features/browser/presentation/pages/web3_browser_tab_page.dart';
+import '../features/token/presentation/bloc/token_bloc.dart';
+import '../features/token/presentation/pages/token_tab_page.dart';
+import '../features/settings/presentation/bloc/settings_bloc.dart';
+import '../features/settings/presentation/bloc/settings_event.dart';
+import '../features/settings/presentation/pages/settings_tab_page.dart';
 
 class MainPage extends StatefulWidget {
   final String? walletAddress;
@@ -44,14 +44,14 @@ class _MainPageState extends State<MainPage> {
     }
 
     // Fetch from repository if not provided
-    final result = await sl<WalletRepository>().getSavedWallets();
+    final result = await sl<WalletRepository>().getWalletCredentials();
     result.fold(
       (failure) {
         setState(() => _isLoading = false);
       },
-      (wallets) {
+      (credentials) {
         setState(() {
-          _walletAddress = wallets.isNotEmpty ? wallets.first.address : null;
+          _walletAddress = credentials?.address;
           _isLoading = false;
         });
       },

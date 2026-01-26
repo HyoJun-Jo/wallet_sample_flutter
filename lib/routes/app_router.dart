@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../core/session/session_manager.dart';
 import '../di/injection_container.dart';
-import '../core/wallet/repositories/wallet_repository.dart';
 import '../core/auth/entities/auth_entities.dart';
 import '../features/auth/presentation/bloc/login_bloc.dart';
 import '../features/auth/presentation/bloc/email_registration_bloc.dart';
@@ -15,7 +14,7 @@ import '../features/auth/presentation/pages/password_reset_page.dart';
 import '../features/auth/presentation/pages/sns_registration_page.dart';
 import '../features/wallet/presentation/bloc/wallet_bloc.dart';
 import '../features/wallet/presentation/pages/create_wallet_page.dart';
-import '../pages/main/main_page.dart';
+import '../pages/main_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
 import '../features/token/domain/entities/token_transfer.dart';
@@ -23,7 +22,7 @@ import '../features/token/presentation/bloc/token_transfer_bloc.dart';
 import '../features/token/presentation/pages/token_transfer_input_page.dart';
 import '../features/token/presentation/pages/token_transfer_confirm_page.dart';
 import '../features/token/presentation/pages/token_transfer_complete_page.dart';
-import '../pages/splash/splash_page.dart';
+import '../pages/splash_page.dart';
 
 // Route observer for tracking navigation
 final routeObserver = RouteObserver<ModalRoute<dynamic>>();
@@ -35,10 +34,7 @@ bool _isAuthProtectedPath(String path) {
   return _authProtectedPaths.any((p) => path.startsWith(p));
 }
 
-GoRouter createAppRouter(
-  SessionManager sessionManager,
-  WalletRepository walletRepository,
-) => GoRouter(
+GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
   initialLocation: '/',
   observers: [routeObserver],
   refreshListenable: sessionManager,
@@ -68,9 +64,10 @@ GoRouter createAppRouter(
       }
     }
 
-    // Redirect from login when authenticated
+    // Authenticated users shouldn't be on login page
+    // Navigation after login is handled by LoginPage
     if (isOnLogin && isAuthenticated) {
-      return walletRepository.hasLocalWallets() ? '/main' : '/wallet/create';
+      return null; // Let LoginPage handle the navigation
     }
 
     // Redirect to login if session expired on protected routes

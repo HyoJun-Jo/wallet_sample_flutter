@@ -1,6 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/wallet/repositories/wallet_repository.dart';
-import '../../domain/usecases/create_wallet_usecase.dart';
+import '../../../../shared/wallet/domain/repositories/wallet_repository.dart';
+import '../../../../shared/wallet/domain/usecases/create_wallet_usecase.dart';
 import 'wallet_event.dart';
 import 'wallet_state.dart';
 
@@ -15,22 +15,22 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   })  : _createWalletUseCase = createWalletUseCase,
         _walletRepository = walletRepository,
         super(const WalletInitial()) {
-    on<WalletListRequested>(_onListRequested);
+    on<WalletLoadRequested>(_onLoadRequested);
     on<WalletCreateRequested>(_onCreateRequested);
     on<WalletDeleteRequested>(_onDeleteRequested);
   }
 
-  Future<void> _onListRequested(
-    WalletListRequested event,
+  Future<void> _onLoadRequested(
+    WalletLoadRequested event,
     Emitter<WalletState> emit,
   ) async {
     emit(const WalletLoading());
 
-    final result = await _walletRepository.getSavedWallets();
+    final result = await _walletRepository.getWalletCredentials();
 
     result.fold(
       (failure) => emit(WalletError(message: failure.message)),
-      (wallets) => emit(WalletListLoaded(wallets: wallets)),
+      (credentials) => emit(WalletLoaded(credentials: credentials)),
     );
   }
 
@@ -47,7 +47,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
 
     result.fold(
       (failure) => emit(WalletError(message: failure.message)),
-      (createResult) => emit(WalletCreated(result: createResult)),
+      (credentials) => emit(WalletCreated(credentials: credentials)),
     );
   }
 
@@ -57,7 +57,7 @@ class WalletBloc extends Bloc<WalletEvent, WalletState> {
   ) async {
     emit(const WalletLoading());
 
-    final result = await _walletRepository.deleteWallet(address: event.address);
+    final result = await _walletRepository.deleteWallet();
 
     result.fold(
       (failure) => emit(WalletError(message: failure.message)),

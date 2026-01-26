@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import 'core/session/session_manager.dart';
 import 'di/injection_container.dart';
-import 'core/wallet/repositories/wallet_repository.dart';
 import 'routes/app_router.dart';
 
 class WalletSampleApp extends StatefulWidget {
@@ -19,10 +18,7 @@ class _WalletSampleAppState extends State<WalletSampleApp> {
   @override
   void initState() {
     super.initState();
-    _router = createAppRouter(
-      sl<SessionManager>(),
-      sl<WalletRepository>(),
-    );
+    _router = createAppRouter(sl<SessionManager>());
   }
 
   @override

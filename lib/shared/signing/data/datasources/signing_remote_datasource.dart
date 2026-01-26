@@ -6,7 +6,7 @@ import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/crypto/secure_channel_service.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
-import '../../../../features/wallet/data/models/wallet_model.dart';
+import '../../../wallet/data/models/wallet_create_model.dart';
 import '../../domain/entities/signing_entities.dart';
 import '../models/signing_models.dart';
 
@@ -15,25 +15,25 @@ abstract class SigningRemoteDataSource {
   /// Personal sign
   Future<SignResponseModel> personalSign({
     required PersonalSignParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   });
 
   /// Sign typed data (EIP-712)
   Future<SignResponseModel> signTypedData({
     required SignTypedDataParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   });
 
   /// Sign hash
   Future<SignResponseModel> signHash({
     required SignHashParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   });
 
   /// Sign transaction
   Future<SignResponseModel> signTransaction({
     required SignTransactionParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   });
 }
 
@@ -51,7 +51,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   @override
   Future<SignResponseModel> personalSign({
     required PersonalSignParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   }) async {
     try {
       final channel = await _secureChannelService.getOrCreateChannel();
@@ -105,7 +105,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   @override
   Future<SignResponseModel> signTypedData({
     required SignTypedDataParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   }) async {
     try {
       final channel = await _secureChannelService.getOrCreateChannel();
@@ -161,7 +161,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   @override
   Future<SignResponseModel> signHash({
     required SignHashParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   }) async {
     try {
       final channel = await _secureChannelService.getOrCreateChannel();
@@ -214,7 +214,7 @@ class SigningRemoteDataSourceImpl implements SigningRemoteDataSource {
   @override
   Future<SignResponseModel> signTransaction({
     required SignTransactionParams params,
-    required WalletCreateResultModel credentials,
+    required WalletCreateModel credentials,
   }) async {
     try {
       final channel = await _secureChannelService.getOrCreateChannel();

@@ -23,6 +23,12 @@ class AppConstants {
   /// Kakao Native App Key
   static String get kakaoNativeAppKey => dotenv.env['KAKAO_NATIVE_APP_KEY'] ?? '';
 
+  /// Environment
+  static bool get isDev => dotenv.env['ENV'] == 'dev';
+
+  /// BTC Network (testnet for dev, mainnet for prod)
+  static String get btcNetwork => isDev ? 'testnet' : 'mainnet';
+
   /// Token Audience
   static const String tokenAudience = 'https://mw.myabcwallet.com';
 

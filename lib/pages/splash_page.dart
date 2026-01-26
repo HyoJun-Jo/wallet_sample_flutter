@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../core/session/session_manager.dart';
-import '../../di/injection_container.dart';
+import '../core/session/session_manager.dart';
+import '../core/usecases/usecase.dart';
+import '../di/injection_container.dart';
+import '../shared/wallet/domain/usecases/check_wallet_usecase.dart';
 
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
@@ -49,9 +51,12 @@ class _SplashPageState extends State<SplashPage> with SingleTickerProviderStateM
     // Minimum splash display time for animation
     await Future.delayed(const Duration(seconds: 2));
 
+    // Check wallet existence via UseCase
+    final hasWallet = await sl<CheckWalletUseCase>()(NoParams());
+
     // Initialize session and determine route
     // GoRouter redirect will handle navigation after this
-    await sl<SessionManager>().initialize();
+    await sl<SessionManager>().initialize(hasWallet: hasWallet);
   }
 
   @override
