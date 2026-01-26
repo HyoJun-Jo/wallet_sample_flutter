@@ -603,10 +603,11 @@ class _HistoryContentState extends State<_HistoryContent> {
         ? chainRepository.allNetworks
         : chainRepository.mainnetNetworks;
 
-    context.read<HistoryBloc>().add(TokenHistoryRequested(
+    context.read<HistoryBloc>().add(HistoryRequested(
           walletAddress: widget.walletAddress,
           networks: networks,
-          refreshFromNetwork: true,
+          isNft: false,
+          forceRefresh: true,
         ));
   }
 
@@ -629,18 +630,17 @@ class _HistoryContentState extends State<_HistoryContent> {
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (state is TokenHistoryLoaded)
+            else if (state is HistoryLoaded)
               SliverToBoxAdapter(
                 child: HistoryList(
-                  transactions: state.transactions,
-                  isUpdating: state.isFromCache,
+                  entries: state.entries,
                   onRefresh: _loadHistory,
                 ),
               )
             else
               SliverToBoxAdapter(
                 child: HistoryList(
-                  transactions: const [],
+                  entries: const [],
                   onRefresh: _loadHistory,
                 ),
               ),

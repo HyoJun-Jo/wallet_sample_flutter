@@ -2,27 +2,21 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/transaction_history_model.dart';
+import '../models/history_model.dart';
 
-/// History Local DataSource interface for caching
 abstract class HistoryLocalDataSource {
-  /// Get cached transactions for a wallet address
-  Future<List<TransactionHistoryModel>?> getCachedTransactions(String walletAddress);
+  Future<List<HistoryModel>?> getCachedHistory(String walletAddress);
 
-  /// Cache transactions for a wallet address
-  Future<void> cacheTransactions(
+  Future<void> cacheHistory(
     String walletAddress,
-    List<TransactionHistoryModel> transactions,
+    List<HistoryModel> entries,
   );
 
-  /// Clear cached transactions for a wallet address
-  Future<void> clearCachedTransactions(String walletAddress);
+  Future<void> clearCachedHistory(String walletAddress);
 
-  /// Clear all cached transactions
-  Future<void> clearAllCachedTransactions();
+  Future<void> clearAllCachedHistory();
 }
 
-/// History Local DataSource implementation using SharedPreferences
 class HistoryLocalDataSourceImpl implements HistoryLocalDataSource {
   final SharedPreferences _prefs;
   static const String _cachePrefix = 'cached_history_';
@@ -31,7 +25,7 @@ class HistoryLocalDataSourceImpl implements HistoryLocalDataSource {
   HistoryLocalDataSourceImpl({required SharedPreferences prefs}) : _prefs = prefs;
 
   @override
-  Future<List<TransactionHistoryModel>?> getCachedTransactions(
+  Future<List<HistoryModel>?> getCachedHistory(
     String walletAddress,
   ) async {
     final key = '$_cachePrefix${walletAddress.toLowerCase()}';
@@ -42,39 +36,36 @@ class HistoryLocalDataSourceImpl implements HistoryLocalDataSource {
     try {
       final list = jsonDecode(jsonString) as List<dynamic>;
       return list
-          .map((e) => TransactionHistoryModel.fromCacheJson(e as Map<String, dynamic>))
+          .map((e) => HistoryModel.fromCacheJson(e as Map<String, dynamic>))
           .toList();
     } catch (e) {
-      // If parsing fails, clear the corrupted cache
-      await clearCachedTransactions(walletAddress);
+      await clearCachedHistory(walletAddress);
       return null;
     }
   }
 
   @override
-  Future<void> cacheTransactions(
+  Future<void> cacheHistory(
     String walletAddress,
-    List<TransactionHistoryModel> transactions,
+    List<HistoryModel> entries,
   ) async {
     final key = '$_cachePrefix${walletAddress.toLowerCase()}';
-    final jsonList = transactions.map((e) => e.toJson()).toList();
+    final jsonList = entries.map((e) => e.toJson()).toList();
     final jsonString = jsonEncode(jsonList);
 
     await _prefs.setString(key, jsonString);
-
-    // Track cached keys for cleanup
     await _addCacheKey(walletAddress);
   }
 
   @override
-  Future<void> clearCachedTransactions(String walletAddress) async {
+  Future<void> clearCachedHistory(String walletAddress) async {
     final key = '$_cachePrefix${walletAddress.toLowerCase()}';
     await _prefs.remove(key);
     await _removeCacheKey(walletAddress);
   }
 
   @override
-  Future<void> clearAllCachedTransactions() async {
+  Future<void> clearAllCachedHistory() async {
     final keys = _getCacheKeys();
     for (final address in keys) {
       final key = '$_cachePrefix${address.toLowerCase()}';

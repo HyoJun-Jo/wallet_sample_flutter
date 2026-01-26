@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-import '../../domain/entities/transaction_history.dart';
+import '../../domain/entities/history_entry.dart';
 
 abstract class HistoryEvent extends Equatable {
   const HistoryEvent();
@@ -9,68 +9,30 @@ abstract class HistoryEvent extends Equatable {
   List<Object?> get props => [];
 }
 
-class TokenHistoryRequested extends HistoryEvent {
+class HistoryRequested extends HistoryEvent {
   final String walletAddress;
   final String networks;
-  final bool refreshFromNetwork;
-  final String? filterNetwork;
-  final String? contractAddress;
+  final bool? isNft;
+  final String? network;
+  final bool forceRefresh;
 
-  const TokenHistoryRequested({
+  const HistoryRequested({
     required this.walletAddress,
     required this.networks,
-    this.refreshFromNetwork = true,
-    this.filterNetwork,
-    this.contractAddress,
+    this.isNft,
+    this.network,
+    this.forceRefresh = false,
   });
 
   @override
-  List<Object?> get props => [
-        walletAddress,
-        networks,
-        refreshFromNetwork,
-        filterNetwork,
-        contractAddress,
-      ];
-}
-
-class NftHistoryRequested extends HistoryEvent {
-  final String walletAddress;
-  final String networks;
-  final bool refreshFromNetwork;
-  final String? filterNetwork;
-  final String? contractAddress;
-  final String? tokenId;
-
-  const NftHistoryRequested({
-    required this.walletAddress,
-    required this.networks,
-    this.refreshFromNetwork = true,
-    this.filterNetwork,
-    this.contractAddress,
-    this.tokenId,
-  });
-
-  @override
-  List<Object?> get props => [
-        walletAddress,
-        networks,
-        refreshFromNetwork,
-        filterNetwork,
-        contractAddress,
-        tokenId,
-      ];
+  List<Object?> get props => [walletAddress, networks, isNft, network, forceRefresh];
 }
 
 class HistoryRefreshed extends HistoryEvent {
-  final List<TransactionHistory> transactions;
-  final bool isTokenHistory;
+  final List<HistoryEntry> entries;
 
-  const HistoryRefreshed({
-    required this.transactions,
-    required this.isTokenHistory,
-  });
+  const HistoryRefreshed({required this.entries});
 
   @override
-  List<Object?> get props => [transactions, isTokenHistory];
+  List<Object?> get props => [entries];
 }

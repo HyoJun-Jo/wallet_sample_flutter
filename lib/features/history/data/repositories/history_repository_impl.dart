@@ -1,12 +1,11 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failures.dart';
-import '../../domain/entities/transaction_history.dart';
+import '../../domain/entities/history_entry.dart';
 import '../../domain/repositories/history_repository.dart';
 import '../datasources/history_local_datasource.dart';
 import '../datasources/history_remote_datasource.dart';
 
-/// History Repository implementation with cache-first pattern
 class HistoryRepositoryImpl implements HistoryRepository {
   final HistoryRemoteDataSource _remoteDataSource;
   final HistoryLocalDataSource _localDataSource;
@@ -18,125 +17,72 @@ class HistoryRepositoryImpl implements HistoryRepository {
         _localDataSource = localDataSource;
 
   @override
-  Future<Either<Failure, List<TransactionHistory>>> getAllTransactions({
+  Future<Either<Failure, List<HistoryEntry>>> getHistory({
     required String walletAddress,
     required String networks,
+    bool forceRefresh = false,
     OnHistoryRefreshed? onRefresh,
-    bool cacheOnly = false,
   }) async {
     try {
-      // 1. Check cache first
-      final cached = await _localDataSource.getCachedTransactions(walletAddress);
+      final cached = await _localDataSource.getCachedHistory(walletAddress);
       if (cached != null && cached.isNotEmpty) {
-        // If cacheOnly, just return cache without background refresh
-        if (!cacheOnly) {
+        final entities = cached.map((m) => m.toEntity()).toList();
+
+        if (forceRefresh) {
           _refreshInBackground(
             walletAddress: walletAddress,
             networks: networks,
             onRefresh: onRefresh,
           );
         }
-        return Right(_sortByDate(cached));
+
+        return Right(_sortByDate(entities));
       }
 
-      // 2. No cache - if cacheOnly, return empty list
-      if (cacheOnly) {
-        return const Right([]);
-      }
-
-      // 3. Fetch from API
-      final transactions = await _remoteDataSource.getTransactions(
+      final models = await _remoteDataSource.getHistory(
         walletAddress: walletAddress,
         networks: networks,
       );
 
-      // Save to cache
-      await _localDataSource.cacheTransactions(walletAddress, transactions);
+      await _localDataSource.cacheHistory(walletAddress, models);
 
-      return Right(_sortByDate(transactions));
+      final entities = models.map((m) => m.toEntity()).toList();
+      return Right(_sortByDate(entities));
     } catch (e) {
-      // On error, try to return cache if available
-      final cached = await _localDataSource.getCachedTransactions(walletAddress);
+      final cached = await _localDataSource.getCachedHistory(walletAddress);
       if (cached != null && cached.isNotEmpty) {
-        return Right(_sortByDate(cached));
+        final entities = cached.map((m) => m.toEntity()).toList();
+        return Right(_sortByDate(entities));
       }
       return Left(ServerFailure(message: e.toString()));
     }
   }
 
   @override
-  Future<Either<Failure, List<TransactionHistory>>> getTokenTransactions({
-    required String walletAddress,
-    required String networks,
-    OnHistoryRefreshed? onRefresh,
-    bool cacheOnly = false,
-  }) async {
-    // Get all transactions and filter: exclude NFT transfers
-    final result = await getAllTransactions(
-      walletAddress: walletAddress,
-      networks: networks,
-      onRefresh: onRefresh != null
-          ? (txs) => onRefresh(_filterTokenTransactions(txs))
-          : null,
-      cacheOnly: cacheOnly,
-    );
-
-    return result.map(_filterTokenTransactions);
+  Future<void> clearCache(String walletAddress) async {
+    await _localDataSource.clearCachedHistory(walletAddress);
   }
 
-  @override
-  Future<Either<Failure, List<TransactionHistory>>> getNftTransactions({
-    required String walletAddress,
-    required String networks,
-    OnHistoryRefreshed? onRefresh,
-    bool cacheOnly = false,
-  }) async {
-    // Get all transactions and filter: only NFT transfers
-    final result = await getAllTransactions(
-      walletAddress: walletAddress,
-      networks: networks,
-      onRefresh: onRefresh != null
-          ? (txs) => onRefresh(_filterNftTransactions(txs))
-          : null,
-      cacheOnly: cacheOnly,
-    );
-
-    return result.map(_filterNftTransactions);
+  List<HistoryEntry> _sortByDate(List<HistoryEntry> entries) {
+    return entries..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
-  /// Filter for token history: exclude NFT transfers
-  List<TransactionHistory> _filterTokenTransactions(List<TransactionHistory> txs) {
-    return txs.where((tx) => tx.type != TransactionType.nftTransfer).toList();
-  }
-
-  /// Filter for NFT history: only NFT transfers
-  List<TransactionHistory> _filterNftTransactions(List<TransactionHistory> txs) {
-    return txs.where((tx) => tx.type == TransactionType.nftTransfer).toList();
-  }
-
-  /// Sort transactions by date (newest first)
-  List<TransactionHistory> _sortByDate(List<TransactionHistory> txs) {
-    return txs..sort((a, b) => b.timestamp.compareTo(a.timestamp));
-  }
-
-  /// Background refresh with callback
   Future<void> _refreshInBackground({
     required String walletAddress,
     required String networks,
     OnHistoryRefreshed? onRefresh,
   }) async {
     try {
-      final transactions = await _remoteDataSource.getTransactions(
+      final models = await _remoteDataSource.getHistory(
         walletAddress: walletAddress,
         networks: networks,
       );
 
-      // Update cache
-      await _localDataSource.cacheTransactions(walletAddress, transactions);
+      await _localDataSource.cacheHistory(walletAddress, models);
 
-      // Notify caller with new data
       if (onRefresh != null) {
-        onRefresh(_sortByDate(transactions));
+        final entities = models.map((m) => m.toEntity()).toList();
+        onRefresh(_sortByDate(entities));
       }
     } catch (_) {
       // Silent failure for background refresh

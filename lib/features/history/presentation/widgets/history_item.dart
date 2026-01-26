@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../../domain/entities/transaction_history.dart';
+import '../../domain/entities/history_entry.dart';
 
 class HistoryItem extends StatelessWidget {
-  final TransactionHistory transaction;
+  final HistoryEntry entry;
   final VoidCallback? onTap;
 
   const HistoryItem({
     super.key,
-    required this.transaction,
+    required this.entry,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isContractCall = transaction.type == TransactionType.contractCall;
-    final isIncoming = transaction.direction == TransactionDirection.incoming;
+    final isContractCall = entry.type == HistoryType.contractCall;
+    final isIncoming = entry.direction == HistoryDirection.incoming;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -132,16 +132,16 @@ class HistoryItem extends StatelessWidget {
 
   Widget _buildTitle() {
     String title;
-    switch (transaction.type) {
-      case TransactionType.coinTransfer:
-        title = transaction.isIncoming ? 'Received' : 'Sent';
-      case TransactionType.tokenTransfer:
-        final symbol = transaction.tokenSymbol ?? 'Token';
-        title = transaction.isIncoming ? 'Received $symbol' : 'Sent $symbol';
-      case TransactionType.nftTransfer:
-        final name = transaction.tokenName ?? 'NFT';
-        title = transaction.isIncoming ? 'Received $name' : 'Sent $name';
-      case TransactionType.contractCall:
+    switch (entry.type) {
+      case HistoryType.coinTransfer:
+        title = entry.isIncoming ? 'Received' : 'Sent';
+      case HistoryType.tokenTransfer:
+        final symbol = entry.tokenSymbol ?? 'Token';
+        title = entry.isIncoming ? 'Received $symbol' : 'Sent $symbol';
+      case HistoryType.nftTransfer:
+        final name = entry.tokenName ?? 'NFT';
+        title = entry.isIncoming ? 'Received $name' : 'Sent $name';
+      case HistoryType.contractCall:
         title = 'Contract Call';
     }
     return Text(
@@ -151,12 +151,12 @@ class HistoryItem extends StatelessWidget {
   }
 
   Widget _buildSubtitle() {
-    final dateStr = _formatDate(transaction.timestamp);
+    final dateStr = _formatDate(entry.timestamp);
 
     String subtitle = dateStr;
 
-    if (transaction.network.isNotEmpty) {
-      subtitle = '${_formatNetworkName(transaction.network)} • $dateStr';
+    if (entry.network.isNotEmpty) {
+      subtitle = '${_formatNetworkName(entry.network)} • $dateStr';
     }
 
     return Text(
@@ -178,15 +178,15 @@ class HistoryItem extends StatelessWidget {
     Color textColor;
 
     if (isContractCall) {
-      final decimals = transaction.tokenDecimals ?? 18;
-      final formattedValue = _formatTokenAmount(transaction.value, decimals);
-      final symbol = transaction.tokenSymbol ?? '';
+      final decimals = entry.tokenDecimals ?? 18;
+      final formattedValue = _formatTokenAmount(entry.value, decimals);
+      final symbol = entry.tokenSymbol ?? '';
       valueText = '$formattedValue $symbol'.trim();
       prefix = '';
       textColor = Colors.blue.shade700;
-    } else if (transaction.type == TransactionType.nftTransfer) {
-      if (transaction.tokenName != null && transaction.tokenName!.isNotEmpty) {
-        valueText = transaction.tokenName!;
+    } else if (entry.type == HistoryType.nftTransfer) {
+      if (entry.tokenName != null && entry.tokenName!.isNotEmpty) {
+        valueText = entry.tokenName!;
         prefix = isIncoming ? '+' : '-';
       } else {
         valueText = '';
@@ -194,9 +194,9 @@ class HistoryItem extends StatelessWidget {
       }
       textColor = isIncoming ? Colors.green.shade700 : Colors.orange.shade700;
     } else {
-      final decimals = transaction.tokenDecimals ?? 18;
-      final formattedValue = _formatTokenAmount(transaction.value, decimals);
-      final symbol = transaction.tokenSymbol ?? '';
+      final decimals = entry.tokenDecimals ?? 18;
+      final formattedValue = _formatTokenAmount(entry.value, decimals);
+      final symbol = entry.tokenSymbol ?? '';
       valueText = '$formattedValue $symbol'.trim();
       prefix = isIncoming ? '+' : '-';
       textColor = isIncoming ? Colors.green.shade700 : Colors.orange.shade700;
@@ -264,7 +264,7 @@ class HistoryItem extends StatelessWidget {
     Color textColor;
     String text;
 
-    switch (transaction.status.toLowerCase()) {
+    switch (entry.status.toLowerCase()) {
       case 'confirmed':
       case 'success':
         bgColor = Colors.green.withValues(alpha: 0.1);
@@ -281,7 +281,7 @@ class HistoryItem extends StatelessWidget {
       default:
         bgColor = Colors.grey.withValues(alpha: 0.1);
         textColor = Colors.grey;
-        text = transaction.status;
+        text = entry.status;
     }
 
     return Container(

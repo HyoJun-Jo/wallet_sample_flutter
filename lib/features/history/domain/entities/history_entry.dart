@@ -1,32 +1,29 @@
 import 'package:equatable/equatable.dart';
 
-/// Transaction type based on API transfer_type field
-enum TransactionType {
+enum HistoryType {
   coinTransfer('coin_transfer'),
   tokenTransfer('token_transfer'),
   nftTransfer('nft_transfer'),
   contractCall('contract_call');
 
   final String raw;
-  const TransactionType(this.raw);
+  const HistoryType(this.raw);
 
-  static TransactionType fromRaw(String? raw) {
-    if (raw == null) return TransactionType.contractCall;
-    return TransactionType.values.firstWhere(
+  static HistoryType fromRaw(String? raw) {
+    if (raw == null) return HistoryType.contractCall;
+    return HistoryType.values.firstWhere(
       (t) => t.raw == raw,
-      orElse: () => TransactionType.contractCall,
+      orElse: () => HistoryType.contractCall,
     );
   }
 }
 
-/// Transaction direction
-enum TransactionDirection {
+enum HistoryDirection {
   incoming,
   outgoing,
 }
 
-/// Transaction history entity
-class TransactionHistory extends Equatable {
+class HistoryEntry extends Equatable {
   final String hash;
   final String from;
   final String to;
@@ -38,13 +35,13 @@ class TransactionHistory extends Equatable {
   final String? tokenId;
   final String network;
   final DateTime timestamp;
-  final TransactionType type;
-  final TransactionDirection direction;
+  final HistoryType type;
+  final HistoryDirection direction;
   final String status;
   final String? gasUsed;
   final String? gasPrice;
 
-  const TransactionHistory({
+  const HistoryEntry({
     required this.hash,
     required this.from,
     required this.to,
@@ -63,17 +60,13 @@ class TransactionHistory extends Equatable {
     this.gasPrice,
   });
 
-  /// Check if this is an incoming transaction
-  bool get isIncoming => direction == TransactionDirection.incoming;
+  bool get isIncoming => direction == HistoryDirection.incoming;
 
-  /// Check if this is an outgoing transaction
-  bool get isOutgoing => direction == TransactionDirection.outgoing;
+  bool get isOutgoing => direction == HistoryDirection.outgoing;
 
-  /// Check if this is a token transaction (for Token History)
-  bool get isTokenTransaction => type != TransactionType.nftTransfer;
+  bool get isToken => type != HistoryType.nftTransfer;
 
-  /// Check if this is an NFT transaction (for NFT History)
-  bool get isNftTransaction => type == TransactionType.nftTransfer;
+  bool get isNft => type == HistoryType.nftTransfer;
 
   @override
   List<Object?> get props => [

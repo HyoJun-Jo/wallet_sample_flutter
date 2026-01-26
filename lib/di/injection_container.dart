@@ -80,8 +80,7 @@ import '../features/history/data/datasources/history_remote_datasource.dart';
 import '../features/history/data/datasources/history_local_datasource.dart';
 import '../features/history/data/repositories/history_repository_impl.dart';
 import '../features/history/domain/repositories/history_repository.dart';
-import '../features/history/domain/usecases/get_token_transactions_usecase.dart';
-import '../features/history/domain/usecases/get_nft_transactions_usecase.dart';
+import '../features/history/domain/usecases/get_history_usecase.dart';
 import '../features/history/presentation/bloc/history_bloc.dart';
 
 // Settings
@@ -349,13 +348,11 @@ Future<void> init() async {
   );
 
   // UseCases
-  sl.registerLazySingleton(() => GetTokenTransactionsUseCase(sl()));
-  sl.registerLazySingleton(() => GetNftTransactionsUseCase(sl()));
+  sl.registerLazySingleton(() => GetHistoryUseCase(sl()));
 
   // BLoC
   sl.registerFactory(() => HistoryBloc(
-        getTokenTransactionsUseCase: sl(),
-        getNftTransactionsUseCase: sl(),
+        getHistoryUseCase: sl(),
       ));
 
   // Settings

@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/entities/transaction_history.dart';
+import '../../domain/entities/history_entry.dart';
 import 'history_item.dart';
 
 class HistoryList extends StatelessWidget {
-  final List<TransactionHistory> transactions;
-  final bool isUpdating;
+  final List<HistoryEntry> entries;
   final VoidCallback? onRefresh;
-  final void Function(TransactionHistory)? onTransactionTap;
+  final void Function(HistoryEntry)? onEntryTap;
 
   const HistoryList({
     super.key,
-    required this.transactions,
-    this.isUpdating = false,
+    required this.entries,
     this.onRefresh,
-    this.onTransactionTap,
+    this.onEntryTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    if (transactions.isEmpty) {
+    if (entries.isEmpty) {
       return _buildEmptyState(context);
     }
-    return _buildTransactionList(context);
+    return _buildHistoryList(context);
   }
 
   Widget _buildEmptyState(BuildContext context) {
@@ -37,7 +35,7 @@ class HistoryList extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'No Transactions',
+            'No History',
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey.shade600,
@@ -45,7 +43,7 @@ class HistoryList extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Transactions will appear here',
+            'History will appear here',
             style: TextStyle(
               fontSize: 14,
               color: Colors.grey.shade500,
@@ -64,60 +62,18 @@ class HistoryList extends StatelessWidget {
     );
   }
 
-  Widget _buildTransactionList(BuildContext context) {
+  Widget _buildHistoryList(BuildContext context) {
     return RefreshIndicator(
       onRefresh: () async {
         onRefresh?.call();
       },
       child: CustomScrollView(
         slivers: [
-          if (isUpdating)
-            SliverToBoxAdapter(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 12,
-                            height: 12,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Theme.of(context).primaryColor,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Updating',
-                            style: TextStyle(
-                              color: Theme.of(context).primaryColor,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                '${transactions.length} transactions',
+                '${entries.length} entries',
                 style: TextStyle(
                   color: Colors.grey.shade600,
                   fontSize: 14,
@@ -131,13 +87,13 @@ class HistoryList extends StatelessWidget {
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate(
                 (context, index) {
-                  final tx = transactions[index];
+                  final entry = entries[index];
                   return HistoryItem(
-                    transaction: tx,
-                    onTap: () => onTransactionTap?.call(tx),
+                    entry: entry,
+                    onTap: () => onEntryTap?.call(entry),
                   );
                 },
-                childCount: transactions.length,
+                childCount: entries.length,
               ),
             ),
           ),
