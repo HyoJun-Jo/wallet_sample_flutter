@@ -12,6 +12,7 @@ import '../../../../shared/wallet/domain/entities/wallet_credentials.dart';
 import '../../../history/presentation/bloc/history_bloc.dart';
 import '../../../history/presentation/bloc/history_event.dart';
 import '../../../history/presentation/bloc/history_state.dart';
+import '../../../history/domain/entities/history_entry.dart';
 import '../../../history/presentation/widgets/history_list.dart';
 import '../../domain/entities/token_info.dart';
 import '../bloc/token_bloc.dart';
@@ -34,7 +35,7 @@ class TokenTabPage extends StatefulWidget {
 
 class _TokenTabPageState extends State<TokenTabPage> {
   int _selectedTabIndex = 0;
-  String _selectedNetwork = 'All Networks';
+  String _selectedNetwork = 'all'; // 'all' means "All Networks"
 
   @override
   void initState() {
@@ -78,6 +79,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
                           child: _HistoryContent(
                             walletAddress: widget.walletAddress,
                             tokens: tokens,
+                            selectedNetwork: _selectedNetwork,
                             balanceSection: _buildBalanceSection(),
                             tabBar: _buildTabBar(),
                           ),
@@ -101,6 +103,14 @@ class _TokenTabPageState extends State<TokenTabPage> {
         }
       },
       builder: (context, state) {
+        // Filter tokens by selected network and exclude spam
+        final allTokens = state is AllTokensLoaded
+            ? state.tokens.where((t) => !t.possibleSpam).toList()
+            : <TokenInfo>[];
+        final filteredTokens = _selectedNetwork == 'all'
+            ? allTokens
+            : allTokens.where((t) => t.network == _selectedNetwork).toList();
+
         return CustomScrollView(
           slivers: [
             // Balance + Action Grid
@@ -112,13 +122,13 @@ class _TokenTabPageState extends State<TokenTabPage> {
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (state is AllTokensLoaded && state.tokens.isNotEmpty)
+            else if (filteredTokens.isNotEmpty)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildTokenItem(state.tokens[index]),
-                    childCount: state.tokens.length,
+                    (context, index) => _buildTokenItem(filteredTokens[index]),
+                    childCount: filteredTokens.length,
                   ),
                 ),
               )
@@ -175,33 +185,13 @@ class _TokenTabPageState extends State<TokenTabPage> {
           ],
         ),
         // Action Icons
-        Row(
-          children: [
-            IconButton(
-              icon: Icon(Icons.qr_code_scanner, color: colorScheme.primary),
-              onPressed: () {
-                // TODO: QR Scanner
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              icon: Icon(Icons.settings, color: colorScheme.primary),
-              onPressed: () {
-                // TODO: Settings
-              },
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-            const SizedBox(width: 16),
-            IconButton(
-              icon: Icon(Icons.download, color: colorScheme.primary),
-              onPressed: _onReceiveTap,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
+        IconButton(
+          icon: Icon(Icons.qr_code_scanner, color: colorScheme.primary),
+          onPressed: () {
+            // TODO: QR Scanner
+          },
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
         ),
       ],
     );
@@ -348,13 +338,49 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
   Widget _buildNetworkDropdown() {
     final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
-      onTap: _showNetworkPicker,
+    final chainRepository = sl<ChainRepository>();
+    final networks = AppConstants.isDev
+        ? chainRepository.testnetNetworks
+        : chainRepository.mainnetNetworks;
+    final networkList = networks.split(',');
+
+    // Get tokens for calculating network values (exclude spam)
+    final tokenState = context.read<TokenBloc>().state;
+    final tokens = tokenState is AllTokensLoaded
+        ? tokenState.tokens.where((t) => !t.possibleSpam).toList()
+        : <TokenInfo>[];
+
+    return PopupMenuButton<String>(
+      onSelected: (network) {
+        setState(() => _selectedNetwork = network);
+      },
+      offset: const Offset(0, 40),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: colorScheme.surface,
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 260),
+      itemBuilder: (context) => [
+        // All Networks option
+        _buildNetworkMenuItem(
+          network: 'all',
+          tokens: tokens,
+          colorScheme: colorScheme,
+        ),
+        const PopupMenuDivider(height: 1),
+        // Individual network options
+        ...networkList.map((network) => _buildNetworkMenuItem(
+              network: network,
+              tokens: tokens,
+              colorScheme: colorScheme,
+            )),
+      ],
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'All Networks',
+            _selectedNetwork != 'all'
+                ? Networks.getConfig(_selectedNetwork)?.name ??
+                    _selectedNetwork
+                : 'All Networks',
             style: TextStyle(
               fontSize: 16,
               color: colorScheme.onSurfaceVariant,
@@ -371,31 +397,141 @@ class _TokenTabPageState extends State<TokenTabPage> {
     );
   }
 
-  void _showNetworkPicker() {
-    final chainRepository = sl<ChainRepository>();
-    final networkList = chainRepository.allNetworks.split(',');
-    final networks = ['All Networks', ...networkList];
-    final colorScheme = Theme.of(context).colorScheme;
+  PopupMenuEntry<String> _buildNetworkMenuItem({
+    required String network,
+    required List<TokenInfo> tokens,
+    required ColorScheme colorScheme,
+  }) {
+    final isSelected = _selectedNetwork == network;
+    final networkTokens = network == 'all'
+        ? tokens
+        : tokens.where((t) => t.network == network).toList();
+    final totalValue = networkTokens.fold<double>(
+      0,
+      (sum, t) => sum + (t.valueUsd ?? 0),
+    );
 
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => ListView.builder(
-        shrinkWrap: true,
-        itemCount: networks.length,
-        itemBuilder: (context, index) {
-          final network = networks[index];
-          return ListTile(
-            title: Text(network),
-            trailing: _selectedNetwork == network
-                ? Icon(Icons.check, color: colorScheme.primary)
+    return PopupMenuItem<String>(
+      value: network,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Row(
+        children: [
+          // Network icon
+          _buildNetworkIcon(network, colorScheme),
+          const SizedBox(width: 12),
+          // Network name & value
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  network != 'all'
+                      ? Networks.getConfig(network)?.name ?? network
+                      : 'All Networks',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                Text(
+                  FormatUtils.formatUsd(totalValue),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Radio indicator
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isSelected ? colorScheme.primary : colorScheme.outline,
+                width: 2,
+              ),
+            ),
+            child: isSelected
+                ? Center(
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                  )
                 : null,
-            onTap: () {
-              setState(() => _selectedNetwork = network);
-              Navigator.pop(context);
-              _loadTokens();
-            },
-          );
-        },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkIcon(String network, ColorScheme colorScheme) {
+    if (network == 'all') {
+      // All Networks icon
+      return Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: colorScheme.primaryContainer,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: Text(
+            '∞',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final iconUrl = Networks.getIcon(network);
+    if (iconUrl != null) {
+      return ClipOval(
+        child: CachedNetworkImage(
+          imageUrl: iconUrl,
+          width: 32,
+          height: 32,
+          fit: BoxFit.cover,
+          placeholder: (_, __) => _buildPlaceholderIcon(network, colorScheme),
+          errorWidget: (_, __, ___) =>
+              _buildPlaceholderIcon(network, colorScheme),
+        ),
+      );
+    }
+
+    return _buildPlaceholderIcon(network, colorScheme);
+  }
+
+  Widget _buildPlaceholderIcon(String network, ColorScheme colorScheme) {
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest,
+        shape: BoxShape.circle,
+      ),
+      child: Center(
+        child: Text(
+          network.substring(0, 2).toUpperCase(),
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }
@@ -600,7 +736,7 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
   void _onSendTap() {
     context.push(
-      '/transfer',
+      '/send',
       extra: {
         'walletAddress': widget.walletAddress,
       },
@@ -623,12 +759,14 @@ class _TokenTabPageState extends State<TokenTabPage> {
 class _HistoryContent extends StatefulWidget {
   final String walletAddress;
   final List<TokenInfo> tokens;
+  final String selectedNetwork;
   final Widget balanceSection;
   final Widget tabBar;
 
   const _HistoryContent({
     required this.walletAddress,
     required this.tokens,
+    required this.selectedNetwork,
     required this.balanceSection,
     required this.tabBar,
   });
@@ -669,6 +807,15 @@ class _HistoryContentState extends State<_HistoryContent> {
         }
       },
       builder: (context, state) {
+        // Filter entries by selected network
+        final allEntries =
+            state is HistoryLoaded ? state.entries : <HistoryEntry>[];
+        final filteredEntries = widget.selectedNetwork == 'all'
+            ? allEntries
+            : allEntries
+                .where((e) => e.network == widget.selectedNetwork)
+                .toList();
+
         return CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: widget.balanceSection),
@@ -677,17 +824,9 @@ class _HistoryContentState extends State<_HistoryContent> {
               const SliverFillRemaining(
                 child: Center(child: CircularProgressIndicator()),
               )
-            else if (state is HistoryLoaded)
-              HistoryList(
-                entries: state.entries,
-                walletAddress: widget.walletAddress,
-                tokens: widget.tokens,
-                onRefresh: _loadHistory,
-                asSliver: true,
-              )
             else
               HistoryList(
-                entries: const [],
+                entries: filteredEntries,
                 walletAddress: widget.walletAddress,
                 tokens: widget.tokens,
                 onRefresh: _loadHistory,

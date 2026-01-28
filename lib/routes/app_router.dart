@@ -17,8 +17,10 @@ import '../features/wallet/presentation/pages/create_wallet_page.dart';
 import '../pages/main_page.dart';
 import '../features/token/domain/entities/token_info.dart';
 import '../features/token/presentation/pages/token_detail_page.dart';
+import '../features/token/presentation/pages/send_token_list_page.dart';
 import '../features/token/domain/entities/token_transfer.dart';
 import '../features/token/presentation/bloc/token_transfer_bloc.dart';
+import '../features/token/presentation/bloc/token_bloc.dart';
 import '../features/token/presentation/pages/token_transfer_input_page.dart';
 import '../features/token/presentation/pages/token_transfer_confirm_page.dart';
 import '../features/token/presentation/pages/token_transfer_complete_page.dart';
@@ -30,7 +32,7 @@ import '../pages/splash_page.dart';
 final routeObserver = RouteObserver<ModalRoute<dynamic>>();
 
 // Auth-protected routes (redirect to login when session expires)
-const _authProtectedPaths = ['/main', '/wallet', '/token', '/transfer'];
+const _authProtectedPaths = ['/main', '/wallet', '/token', '/send', '/transfer'];
 
 bool _isAuthProtectedPath(String path) {
   return _authProtectedPaths.any((p) => path.startsWith(p));
@@ -156,6 +158,20 @@ GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
         return TokenDetailPage(
           walletAddress: extra['walletAddress'] as String,
           token: extra['token'] as TokenInfo,
+        );
+      },
+    ),
+
+    // Send token list page
+    GoRoute(
+      path: '/send',
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>;
+        return BlocProvider(
+          create: (_) => sl<TokenBloc>(),
+          child: SendTokenListPage(
+            walletAddress: extra['walletAddress'] as String,
+          ),
         );
       },
     ),
