@@ -84,7 +84,15 @@ class WalletRemoteDataSourceImpl implements WalletRemoteDataSource {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        return WalletCreateModel.fromJson(response.data);
+        // API 응답 필드명 매핑: sid→address, pvencstr→keyShare 등
+        final data = response.data as Map<String, dynamic>;
+        return WalletCreateModel(
+          address: data['sid'] as String,
+          keyShare: data['pvencstr'] as String,
+          uid: data['uid'] as String,
+          wid: data['wid'] as int,
+          encDevicePassword: data['encryptDevicePassword'] as String,
+        );
       }
 
       throw ServerException(

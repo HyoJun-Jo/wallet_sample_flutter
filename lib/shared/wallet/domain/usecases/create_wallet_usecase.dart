@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/usecases/usecase.dart';
@@ -58,19 +59,33 @@ class CreateWalletUseCase
     try {
       final walletInfoResult = await _repository.getWalletInfo();
       return walletInfoResult.fold(
-        (_) => null,
+        (failure) {
+          debugPrint('[CreateWallet] getWalletInfo failed: ${failure.message}');
+          return null;
+        },
         (walletInfo) async {
           final pubkey = walletInfo.primaryAccount?.pubkey;
+          debugPrint('[CreateWallet] pubkey: $pubkey');
           if (pubkey == null) return null;
 
           final btcResult = await _repository.lookupBtcAddress(
             pubkey: pubkey,
             network: AppConstants.btcNetwork,
           );
-          return btcResult.fold((_) => null, (address) => address);
+          return btcResult.fold(
+            (failure) {
+              debugPrint('[CreateWallet] lookupBtcAddress failed: ${failure.message}');
+              return null;
+            },
+            (address) {
+              debugPrint('[CreateWallet] btcAddress: $address');
+              return address;
+            },
+          );
         },
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[CreateWallet] _getBtcAddress error: $e');
       return null;
     }
   }

@@ -6,6 +6,9 @@ import '../../domain/repositories/history_repository.dart';
 import '../datasources/history_local_datasource.dart';
 import '../datasources/history_remote_datasource.dart';
 
+/// Default epoch since days for history query (30 days)
+const int kEpochSinceDays = 30;
+
 class HistoryRepositoryImpl implements HistoryRepository {
   final HistoryRemoteDataSource _remoteDataSource;
   final HistoryLocalDataSource _localDataSource;
@@ -42,6 +45,7 @@ class HistoryRepositoryImpl implements HistoryRepository {
       final models = await _remoteDataSource.getHistory(
         walletAddress: walletAddress,
         networks: networks,
+        epochSince: _getEpochSince(),
       );
 
       await _localDataSource.cacheHistory(walletAddress, models);
@@ -67,6 +71,12 @@ class HistoryRepositoryImpl implements HistoryRepository {
     return entries..sort((a, b) => b.timestamp.compareTo(a.timestamp));
   }
 
+  /// Calculate epoch since timestamp (30 days ago in seconds)
+  int _getEpochSince() {
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    return now - (kEpochSinceDays * 24 * 60 * 60);
+  }
+
   Future<void> _refreshInBackground({
     required String walletAddress,
     required String networks,
@@ -76,6 +86,7 @@ class HistoryRepositoryImpl implements HistoryRepository {
       final models = await _remoteDataSource.getHistory(
         walletAddress: walletAddress,
         networks: networks,
+        epochSince: _getEpochSince(),
       );
 
       await _localDataSource.cacheHistory(walletAddress, models);

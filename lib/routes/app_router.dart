@@ -22,6 +22,8 @@ import '../features/token/presentation/bloc/token_transfer_bloc.dart';
 import '../features/token/presentation/pages/token_transfer_input_page.dart';
 import '../features/token/presentation/pages/token_transfer_confirm_page.dart';
 import '../features/token/presentation/pages/token_transfer_complete_page.dart';
+import '../features/receive/presentation/pages/address_page.dart';
+import '../shared/wallet/domain/entities/wallet_credentials.dart';
 import '../pages/splash_page.dart';
 
 // Route observer for tracking navigation
@@ -202,6 +204,15 @@ GoRouter createAppRouter(SessionManager sessionManager) => GoRouter(
           token: extra['token'] as TokenInfo?,
           amount: extra['amount'] as String?,
         );
+      },
+    ),
+
+    // Address page
+    GoRoute(
+      path: '/address',
+      builder: (context, state) {
+        final credentials = state.extra as WalletCredentials;
+        return AddressPage(credentials: credentials);
       },
     ),
   ],

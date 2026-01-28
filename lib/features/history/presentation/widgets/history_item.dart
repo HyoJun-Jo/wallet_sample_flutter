@@ -1,228 +1,302 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/constants/networks.dart';
+import '../../../../core/utils/address_utils.dart';
 import '../../domain/entities/history_entry.dart';
 
 class HistoryItem extends StatelessWidget {
   final HistoryEntry entry;
+  final String walletAddress;
+  final String? tokenLogo;
   final VoidCallback? onTap;
 
   const HistoryItem({
     super.key,
     required this.entry,
+    this.walletAddress = '',
+    this.tokenLogo,
     this.onTap,
   });
 
+  bool get _isOutgoing {
+    // Match SDK logic: check receiver side first
+    // If receiver matches wallet → Receive, otherwise → Send
+    if (walletAddress.isEmpty) {
+      return entry.direction == HistoryDirection.outgoing;
+    }
+    return entry.to.toLowerCase() != walletAddress.toLowerCase();
+  }
+
+  String get _label {
+    final isContractCall = entry.type == HistoryType.contractCall;
+    final success = entry.status.toLowerCase() == 'confirmed';
+
+    if (isContractCall) {
+      return success ? 'Contract Call' : 'Contract Call Failed';
+    }
+    if (_isOutgoing) {
+      return success ? 'Send' : 'Send Failed';
+    }
+    return success ? 'Receive' : 'Receive Failed';
+  }
+
+  void _openExplorer() async {
+    final url = Networks.getTransactionUrl(entry.network, entry.hash);
+    if (url != null) {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isContractCall = entry.type == HistoryType.contractCall;
-    final isIncoming = entry.direction == HistoryDirection.incoming;
+    final isFailed = entry.status.toLowerCase() == 'failed';
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: isContractCall
-              ? Colors.blue.withValues(alpha: 0.3)
-              : isIncoming
-                  ? Colors.green.withValues(alpha: 0.3)
-                  : Colors.orange.withValues(alpha: 0.3),
-          width: 1,
+    return InkWell(
+      onTap: onTap ?? _openExplorer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        child: Row(
+          children: [
+            // Icon Container with Network Badge and Status
+            _buildIconContainer(colorScheme, isContractCall, isFailed),
+            const SizedBox(width: 12),
+
+            // Transaction Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _getAddressText(),
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+
+            // Amount and Time
+            _buildDetails(colorScheme, isContractCall),
+
+            // Export Button
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: _openExplorer,
+              icon: Icon(
+                Icons.open_in_new,
+                size: 18,
+                color: colorScheme.primary,
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(
+                minWidth: 32,
+                minHeight: 32,
+              ),
+            ),
+          ],
         ),
       ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              _buildDirectionIcon(isContractCall, isIncoming),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildDirectionLabel(isContractCall, isIncoming),
-                    const SizedBox(height: 4),
-                    _buildTitle(),
-                    const SizedBox(height: 2),
-                    _buildSubtitle(),
-                  ],
+    );
+  }
+
+  Widget _buildIconContainer(
+    ColorScheme colorScheme,
+    bool isContractCall,
+    bool isFailed,
+  ) {
+    final networkIcon = Networks.getIcon(entry.network);
+    final isTokenTransfer = entry.type == HistoryType.tokenTransfer;
+    final isNftTransfer = entry.type == HistoryType.nftTransfer;
+    final isCoinTransfer = entry.type == HistoryType.coinTransfer;
+
+    return SizedBox(
+      width: 40,
+      height: 40,
+      child: Stack(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: colorScheme.surfaceContainerHighest,
+              shape: BoxShape.circle,
+            ),
+            child: ClipOval(
+              child: isContractCall
+                  ? Icon(
+                      Icons.description_outlined,
+                      size: 20,
+                      color: colorScheme.onSurfaceVariant,
+                    )
+                  : tokenLogo != null
+                      ? CachedNetworkImage(
+                          imageUrl: tokenLogo!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) =>
+                              _buildTokenPlaceholder(colorScheme),
+                          errorWidget: (context, url, error) =>
+                              _buildTokenPlaceholder(colorScheme),
+                        )
+                      : isCoinTransfer && networkIcon != null
+                          ? CachedNetworkImage(
+                              imageUrl: networkIcon,
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) =>
+                                  _buildTokenPlaceholder(colorScheme),
+                              errorWidget: (context, url, error) =>
+                                  _buildTokenPlaceholder(colorScheme),
+                            )
+                          : _buildTokenPlaceholder(colorScheme),
+            ),
+          ),
+
+          // Network Badge (bottom right) - show for token/NFT transfers
+          if (networkIcon != null && (isTokenTransfer || isNftTransfer))
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.surface,
+                    width: 2,
+                  ),
+                ),
+                child: ClipOval(
+                  child: CachedNetworkImage(
+                    imageUrl: networkIcon,
+                    width: 16,
+                    height: 16,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
-              _buildTrailing(context, isContractCall, isIncoming),
-            ],
-          ),
-        ),
+            ),
+
+          // Status Indicator (top left)
+          if (!isContractCall || isFailed)
+            Positioned(
+              top: 0,
+              left: 0,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: isFailed
+                      ? Colors.red.withValues(alpha: 0.2)
+                      : _isOutgoing
+                          ? Colors.red.withValues(alpha: 0.2)
+                          : Colors.green.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: colorScheme.surface,
+                    width: 2,
+                  ),
+                ),
+                child: Icon(
+                  isFailed
+                      ? Icons.close
+                      : _isOutgoing
+                          ? Icons.arrow_upward
+                          : Icons.arrow_downward,
+                  size: 10,
+                  color: isFailed
+                      ? Colors.red
+                      : _isOutgoing
+                          ? Colors.red
+                          : Colors.green,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildDirectionIcon(bool isContractCall, bool isIncoming) {
-    Color bgColor;
-    Color iconColor;
-    IconData icon;
-
-    if (isContractCall) {
-      bgColor = Colors.blue.withValues(alpha: 0.1);
-      iconColor = Colors.blue;
-      icon = Icons.description_outlined;
-    } else if (isIncoming) {
-      bgColor = Colors.green.withValues(alpha: 0.1);
-      iconColor = Colors.green;
-      icon = Icons.call_received;
-    } else {
-      bgColor = Colors.orange.withValues(alpha: 0.1);
-      iconColor = Colors.orange;
-      icon = Icons.call_made;
-    }
-
+  Widget _buildTokenPlaceholder(ColorScheme colorScheme) {
+    // For token transfers use token symbol, for coin transfers use network symbol
+    final symbol = entry.tokenSymbol ?? Networks.getSymbol(entry.network);
+    final displayLength = symbol.length >= 3 ? 3 : symbol.length;
     return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Icon(
-        icon,
-        color: iconColor,
-        size: 24,
-      ),
-    );
-  }
-
-  Widget _buildDirectionLabel(bool isContractCall, bool isIncoming) {
-    Color bgColor;
-    Color textColor;
-    String label;
-
-    if (isContractCall) {
-      bgColor = Colors.blue.withValues(alpha: 0.1);
-      textColor = Colors.blue.shade700;
-      label = 'Contract';
-    } else if (isIncoming) {
-      bgColor = Colors.green.withValues(alpha: 0.1);
-      textColor = Colors.green.shade700;
-      label = 'Received';
-    } else {
-      bgColor = Colors.orange.withValues(alpha: 0.1);
-      textColor = Colors.orange.shade700;
-      label = 'Sent';
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
+      color: colorScheme.surfaceContainerHighest,
+      alignment: Alignment.center,
       child: Text(
-        label,
+        symbol.substring(0, displayLength).toUpperCase(),
         style: TextStyle(
-          color: textColor,
-          fontSize: 11,
+          fontSize: 12,
           fontWeight: FontWeight.w600,
+          color: colorScheme.onSurfaceVariant,
         ),
       ),
     );
   }
 
-  Widget _buildTitle() {
-    String title;
-    switch (entry.type) {
-      case HistoryType.coinTransfer:
-        title = entry.isIncoming ? 'Received' : 'Sent';
-      case HistoryType.tokenTransfer:
-        final symbol = entry.tokenSymbol ?? 'Token';
-        title = entry.isIncoming ? 'Received $symbol' : 'Sent $symbol';
-      case HistoryType.nftTransfer:
-        final name = entry.tokenName ?? 'NFT';
-        title = entry.isIncoming ? 'Received $name' : 'Sent $name';
-      case HistoryType.contractCall:
-        title = 'Contract Call';
-    }
-    return Text(
-      title,
-      style: const TextStyle(fontWeight: FontWeight.w500),
-    );
-  }
-
-  Widget _buildSubtitle() {
-    final dateStr = _formatDate(entry.timestamp);
-
-    String subtitle = dateStr;
-
-    if (entry.network.isNotEmpty) {
-      subtitle = '${_formatNetworkName(entry.network)} • $dateStr';
-    }
-
-    return Text(
-      subtitle,
-      style: TextStyle(
-        color: Colors.grey.shade600,
-        fontSize: 12,
-      ),
-    );
-  }
-
-  String _formatDate(DateTime date) {
-    return DateFormat('MMM d, yyyy HH:mm').format(date);
-  }
-
-  Widget _buildTrailing(BuildContext context, bool isContractCall, bool isIncoming) {
-    String valueText;
-    String prefix;
-    Color textColor;
+  String _getAddressText() {
+    final isContractCall = entry.type == HistoryType.contractCall;
 
     if (isContractCall) {
-      final decimals = entry.tokenDecimals ?? 18;
-      final formattedValue = _formatTokenAmount(entry.value, decimals);
-      final symbol = entry.tokenSymbol ?? '';
-      valueText = '$formattedValue $symbol'.trim();
-      prefix = '';
-      textColor = Colors.blue.shade700;
-    } else if (entry.type == HistoryType.nftTransfer) {
-      if (entry.tokenName != null && entry.tokenName!.isNotEmpty) {
-        valueText = entry.tokenName!;
-        prefix = isIncoming ? '+' : '-';
-      } else {
-        valueText = '';
-        prefix = '';
-      }
-      textColor = isIncoming ? Colors.green.shade700 : Colors.orange.shade700;
-    } else {
-      final decimals = entry.tokenDecimals ?? 18;
-      final formattedValue = _formatTokenAmount(entry.value, decimals);
-      final symbol = entry.tokenSymbol ?? '';
-      valueText = '$formattedValue $symbol'.trim();
-      prefix = isIncoming ? '+' : '-';
-      textColor = isIncoming ? Colors.green.shade700 : Colors.orange.shade700;
+      return 'App ${AddressUtils.shorten(entry.to)}';
     }
+    if (_isOutgoing) {
+      return 'To ${AddressUtils.shorten(entry.to)}';
+    }
+    return 'From ${AddressUtils.shorten(entry.from)}';
+  }
 
+  Widget _buildDetails(ColorScheme colorScheme, bool isContractCall) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
+        if (!isContractCall && entry.tokenSymbol != null)
+          Text(
+            '${_isOutgoing ? '-' : '+'}${_formatAmount()} ${entry.tokenSymbol}',
+            style: TextStyle(
+              fontSize: 16,
+              color: _isOutgoing ? Colors.red : Colors.green,
+            ),
+          ),
+        const SizedBox(height: 2),
         Text(
-          '$prefix$valueText',
+          _formatTime(entry.timestamp),
           style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-            color: textColor,
+            fontSize: 16,
+            color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 4),
-        _buildStatusBadge(),
       ],
     );
   }
 
-  String _formatTokenAmount(String weiValue, int decimals) {
+  String _formatAmount() {
+    final decimals = entry.tokenDecimals ?? 18;
     try {
-      final value = BigInt.tryParse(weiValue) ?? BigInt.zero;
+      final value = BigInt.tryParse(entry.value) ?? BigInt.zero;
       if (value == BigInt.zero) return '0';
 
       final divisor = BigInt.from(10).pow(decimals);
@@ -245,7 +319,7 @@ class HistoryItem extends StatelessWidget {
 
       return '${_formatLargeNumber(integerPart.toDouble())}.$displayFraction';
     } catch (_) {
-      return weiValue;
+      return entry.value;
     }
   }
 
@@ -259,64 +333,7 @@ class HistoryItem extends StatelessWidget {
     return value.toStringAsFixed(0);
   }
 
-  Widget _buildStatusBadge() {
-    Color bgColor;
-    Color textColor;
-    String text;
-
-    switch (entry.status.toLowerCase()) {
-      case 'confirmed':
-      case 'success':
-        bgColor = Colors.green.withValues(alpha: 0.1);
-        textColor = Colors.green;
-        text = 'Confirmed';
-      case 'pending':
-        bgColor = Colors.orange.withValues(alpha: 0.1);
-        textColor = Colors.orange;
-        text = 'Pending';
-      case 'failed':
-        bgColor = Colors.red.withValues(alpha: 0.1);
-        textColor = Colors.red;
-        text = 'Failed';
-      default:
-        bgColor = Colors.grey.withValues(alpha: 0.1);
-        textColor = Colors.grey;
-        text = entry.status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: textColor,
-          fontSize: 10,
-        ),
-      ),
-    );
-  }
-
-  String _formatNetworkName(String network) {
-    switch (network.toLowerCase()) {
-      case 'ethereum':
-        return 'ETH';
-      case 'polygon':
-        return 'MATIC';
-      case 'binance':
-      case 'bsc':
-        return 'BNB';
-      case 'arbitrum':
-        return 'ARB';
-      case 'optimism':
-        return 'OP';
-      case 'avalanche':
-        return 'AVAX';
-      default:
-        return network.toUpperCase();
-    }
+  String _formatTime(DateTime date) {
+    return DateFormat('HH:mm').format(date);
   }
 }

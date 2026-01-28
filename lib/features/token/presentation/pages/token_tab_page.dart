@@ -1,11 +1,14 @@
-import 'package:flutter/foundation.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/chain/chain_repository.dart';
+import '../../../../core/constants/app_constants.dart';
+import '../../../../core/constants/networks.dart';
 import '../../../../core/utils/address_utils.dart';
 import '../../../../core/utils/format_utils.dart';
 import '../../../../di/injection_container.dart';
+import '../../../../shared/wallet/domain/entities/wallet_credentials.dart';
 import '../../../history/presentation/bloc/history_bloc.dart';
 import '../../../history/presentation/bloc/history_event.dart';
 import '../../../history/presentation/bloc/history_state.dart';
@@ -17,10 +20,12 @@ import '../bloc/token_state.dart';
 
 class TokenTabPage extends StatefulWidget {
   final String walletAddress;
+  final WalletCredentials? credentials;
 
   const TokenTabPage({
     super.key,
     required this.walletAddress,
+    this.credentials,
   });
 
   @override
@@ -39,8 +44,8 @@ class _TokenTabPageState extends State<TokenTabPage> {
 
   void _loadTokens() {
     final chainRepository = sl<ChainRepository>();
-    final networks = kDebugMode
-        ? chainRepository.allNetworks
+    final networks = AppConstants.isDev
+        ? chainRepository.testnetNetworks
         : chainRepository.mainnetNetworks;
     context.read<TokenBloc>().add(AllTokensRequested(
           walletAddress: widget.walletAddress,
@@ -63,13 +68,21 @@ class _TokenTabPageState extends State<TokenTabPage> {
             Expanded(
               child: _selectedTabIndex == 0
                   ? _buildTokensScrollView()
-                  : BlocProvider(
-                      create: (context) => sl<HistoryBloc>(),
-                      child: _HistoryContent(
-                        walletAddress: widget.walletAddress,
-                        balanceSection: _buildBalanceSection(),
-                        tabBar: _buildTabBar(),
-                      ),
+                  : BlocBuilder<TokenBloc, TokenState>(
+                      builder: (context, tokenState) {
+                        final tokens = tokenState is AllTokensLoaded
+                            ? tokenState.tokens
+                            : <TokenInfo>[];
+                        return BlocProvider(
+                          create: (context) => sl<HistoryBloc>(),
+                          child: _HistoryContent(
+                            walletAddress: widget.walletAddress,
+                            tokens: tokens,
+                            balanceSection: _buildBalanceSection(),
+                            tabBar: _buildTabBar(),
+                          ),
+                        );
+                      },
                     ),
             ),
           ],
@@ -487,12 +500,23 @@ class _TokenTabPageState extends State<TokenTabPage> {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(
-                    '${token.formattedBalance} ${token.symbol}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
+                  Row(
+                    children: [
+                      if (!token.isNative) ...[
+                        _buildNetworkBadge(token.network),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          '${token.formattedBalance} ${token.symbol}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -528,6 +552,22 @@ class _TokenTabPageState extends State<TokenTabPage> {
           fontWeight: FontWeight.bold,
           color: colorScheme.onSurfaceVariant,
         ),
+      ),
+    );
+  }
+
+  Widget _buildNetworkBadge(String network) {
+    final iconUrl = Networks.getIcon(network);
+    if (iconUrl == null) return const SizedBox.shrink();
+
+    return ClipOval(
+      child: CachedNetworkImage(
+        imageUrl: iconUrl,
+        width: 16,
+        height: 16,
+        fit: BoxFit.cover,
+        placeholder: (context, url) => const SizedBox(width: 16, height: 16),
+        errorWidget: (context, url, error) => const SizedBox(width: 16, height: 16),
       ),
     );
   }
@@ -568,20 +608,27 @@ class _TokenTabPageState extends State<TokenTabPage> {
   }
 
   void _onReceiveTap() {
-    // TODO: Navigate to receive page
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Receive feature coming soon')),
-    );
+    debugPrint('[TokenTabPage] _onReceiveTap - credentials: ${widget.credentials}');
+    final credentials = widget.credentials;
+    if (credentials != null) {
+      context.push('/address', extra: credentials);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('지갑 정보를 불러올 수 없습니다')),
+      );
+    }
   }
 }
 
 class _HistoryContent extends StatefulWidget {
   final String walletAddress;
+  final List<TokenInfo> tokens;
   final Widget balanceSection;
   final Widget tabBar;
 
   const _HistoryContent({
     required this.walletAddress,
+    required this.tokens,
     required this.balanceSection,
     required this.tabBar,
   });
@@ -599,8 +646,8 @@ class _HistoryContentState extends State<_HistoryContent> {
 
   void _loadHistory() {
     final chainRepository = sl<ChainRepository>();
-    final networks = kDebugMode
-        ? chainRepository.allNetworks
+    final networks = AppConstants.isDev
+        ? chainRepository.testnetNetworks
         : chainRepository.mainnetNetworks;
 
     context.read<HistoryBloc>().add(HistoryRequested(
@@ -631,18 +678,20 @@ class _HistoryContentState extends State<_HistoryContent> {
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (state is HistoryLoaded)
-              SliverToBoxAdapter(
-                child: HistoryList(
-                  entries: state.entries,
-                  onRefresh: _loadHistory,
-                ),
+              HistoryList(
+                entries: state.entries,
+                walletAddress: widget.walletAddress,
+                tokens: widget.tokens,
+                onRefresh: _loadHistory,
+                asSliver: true,
               )
             else
-              SliverToBoxAdapter(
-                child: HistoryList(
-                  entries: const [],
-                  onRefresh: _loadHistory,
-                ),
+              HistoryList(
+                entries: const [],
+                walletAddress: widget.walletAddress,
+                tokens: widget.tokens,
+                onRefresh: _loadHistory,
+                asSliver: true,
               ),
           ],
         );

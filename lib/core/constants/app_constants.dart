@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'networks.dart';
 
 /// Application-wide constants loaded from environment files
 class AppConstants {
@@ -27,7 +28,10 @@ class AppConstants {
   static bool get isDev => dotenv.env['ENV'] == 'dev';
 
   /// BTC Network (testnet for dev, mainnet for prod)
-  static String get btcNetwork => isDev ? 'testnet' : 'mainnet';
+  static String get btcNetwork => Networks.getBitcoinNetwork(isDev);
+
+  /// SOL Network (devnet for dev, mainnet for prod)
+  static String get solNetwork => Networks.getSolanaNetwork(isDev);
 
   /// Token Audience
   static const String tokenAudience = 'https://mw.myabcwallet.com';

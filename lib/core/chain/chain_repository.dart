@@ -12,6 +12,7 @@ abstract class ChainRepository {
   Chain? getByChainId(int chainId);
   Chain? getByCoin(String coin);
   String get mainnetNetworks;
+  String get testnetNetworks;
   String get allNetworks;
   Future<void> load();
 }
@@ -80,6 +81,9 @@ class ChainRepositoryImpl implements ChainRepository {
 
   @override
   String get mainnetNetworks => mainnetChains.map((c) => c.network).join(',');
+
+  @override
+  String get testnetNetworks => testnetChains.map((c) => c.network).join(',');
 
   @override
   String get allNetworks => _chains.map((c) => c.network).join(',');

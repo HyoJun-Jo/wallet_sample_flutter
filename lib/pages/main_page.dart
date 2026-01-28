@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../shared/wallet/domain/entities/wallet_credentials.dart';
 import '../shared/wallet/domain/repositories/wallet_repository.dart';
 import '../di/injection_container.dart';
 import '../features/browser/presentation/bloc/browser_bloc.dart';
@@ -26,36 +27,34 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _currentIndex = 0;
   String? _walletAddress;
+  WalletCredentials? _credentials;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _initWalletAddress();
+    _initWalletCredentials();
   }
 
-  Future<void> _initWalletAddress() async {
-    if (widget.walletAddress != null) {
-      setState(() {
-        _walletAddress = widget.walletAddress;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // Fetch from repository if not provided
+  Future<void> _initWalletCredentials() async {
     final result = await sl<WalletRepository>().getWalletCredentials();
-    result.fold(
-      (failure) {
-        setState(() => _isLoading = false);
-      },
-      (credentials) {
-        setState(() {
-          _walletAddress = credentials?.address;
-          _isLoading = false;
-        });
-      },
-    );
+
+    if (!mounted) return;
+
+    setState(() {
+      result.fold(
+        (failure) {
+          debugPrint('[MainPage] getWalletCredentials failed: ${failure.message}');
+          _walletAddress = widget.walletAddress;
+        },
+        (credentials) {
+          debugPrint('[MainPage] credentials loaded: ${credentials?.address}');
+          _credentials = credentials;
+          _walletAddress = credentials?.address ?? widget.walletAddress;
+        },
+      );
+      _isLoading = false;
+    });
   }
 
   @override
@@ -74,8 +73,12 @@ class _MainPageState extends State<MainPage> {
         children: [
           // Token Tab
           BlocProvider(
+            key: ValueKey('token_${_credentials?.address}'),
             create: (_) => sl<TokenBloc>(),
-            child: TokenTabPage(walletAddress: walletAddress),
+            child: TokenTabPage(
+              walletAddress: walletAddress,
+              credentials: _credentials,
+            ),
           ),
           // Browser Tab
           BlocProvider(

@@ -9,6 +9,7 @@ abstract class HistoryRemoteDataSource {
   Future<List<HistoryModel>> getHistory({
     required String walletAddress,
     required String networks,
+    int? epochSince,
   });
 }
 
@@ -22,6 +23,7 @@ class HistoryRemoteDataSourceImpl implements HistoryRemoteDataSource {
   Future<List<HistoryModel>> getHistory({
     required String walletAddress,
     required String networks,
+    int? epochSince,
   }) async {
     try {
       final response = await _apiClient.get(
@@ -29,6 +31,7 @@ class HistoryRemoteDataSourceImpl implements HistoryRemoteDataSource {
         queryParameters: {
           'walletAddress': walletAddress,
           'networks': networks,
+          if (epochSince != null) 'epochSince': epochSince,
         },
       );
 
